@@ -1,6 +1,46 @@
-# Getting Started with Create React App
+# gsb-project
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React application built with TypeScript for GSB.
+
+## Tech Stack
+
+*   **Frontend:** React, TypeScript
+*   **UI Library:** Material UI (@mui/material)
+*   **Styling:** Emotion (@emotion/react, @emotion/styled)
+*   **Routing:** React Router DOM
+*   **HTTP Client:** Axios
+*   **Charting:** Chart.js, Recharts
+*   **Build Tool:** Create React App (react-scripts)
+
+## Prerequisites
+
+*   Node.js (>= 16.x recommended)
+*   npm or yarn
+
+## Installation
+
+1.  Clone the repository:
+    ```bash
+    git clone <your-repository-url>
+    cd gsb-project
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    # or
+    # yarn install
+    ```
+
+## Environment Variables
+
+This project might require environment variables. Create a `.env` file in the root directory based on the `.env.example` file (if one exists) or add the necessary variables:
+
+```env
+# Example:
+# REACT_APP_API_URL=http://localhost:8000/api
+```
+
+Make sure your backend server (if any) is running and accessible.
 
 ## Available Scripts
 
@@ -8,39 +48,23 @@ In the project directory, you can run:
 
 ### `npm start`
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+Runs the app in development mode.\
+Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+The page will reload when you make changes.\
+You may also see any lint errors in the console.
 
 ### `npm test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Launches the test runner in interactive watch mode.
 
 ### `npm run build`
 
 Builds the app for production to the `build` folder.\
 It correctly bundles React in production mode and optimizes the build for the best performance.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+The build is minified and the filenames include the hashes. Your app is ready to be deployed!
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Deployment
 
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+After running `npm run build`, the `build/` directory will contain the static assets ready for deployment to any static hosting provider.
