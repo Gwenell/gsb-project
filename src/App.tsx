@@ -39,7 +39,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/medecins" element={<ProtectedRoute element={<Medecins />} />} />
             <Route path="/medicaments" element={<ProtectedRoute element={<Medicaments />} />} />
             <Route path="/assign-medicaments" element={<ProtectedRoute element={<AssignMedicaments />} />} />
