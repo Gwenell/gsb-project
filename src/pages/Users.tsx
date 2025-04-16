@@ -314,19 +314,17 @@ const Users: React.FC = () => {
     try {
       const response = await deleteUser(currentUser.id);
       
-      if (response.data && response.data.status === 'success') {
+      if (response.status === 'success') {
         // Remove from local state
         const updatedUsers = users.filter(u => u.id !== currentUser.id);
         setUsers(updatedUsers);
-        setFilteredUsers(updatedUsers);
-        
         setSnackbar({
           open: true,
           message: 'Utilisateur supprimé avec succès',
           severity: 'success'
         });
       } else {
-        throw new Error(response.data?.message || 'Erreur lors de la suppression de l\'utilisateur');
+        throw new Error(response.message || 'Erreur lors de la suppression de l\'utilisateur');
       }
       
       setOpenDeleteDialog(false);

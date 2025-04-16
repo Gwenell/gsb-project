@@ -557,13 +557,13 @@ const Rapports: React.FC = () => {
           idMedecin: formValues.idMedecin
         });
         
-        const response = await addRapport(
-          formValues.date,
-          formValues.motif,
-          formValues.bilan,
-          user.id.toString(),
-          formValues.idMedecin
-        );
+        const response = await addRapport({
+          date: formValues.date,
+          motif: formValues.motif,
+          bilan: formValues.bilan,
+          idVisiteur: user.id.toString(),
+          idMedecin: formValues.idMedecin
+        });
         
         console.log("Réponse de l'API pour l'ajout:", response.data);
         
@@ -582,8 +582,10 @@ const Rapports: React.FC = () => {
               
               const offreResponse = await addMedicamentOffert(
                 rapportId,
-                med.id,
-                med.quantite.toString()
+                {
+                  idMedicament: med.id,
+                  quantite: med.quantite.toString()
+                }
               );
               
               console.log("Réponse de l'API pour l'ajout du médicament:", offreResponse.data);
@@ -607,10 +609,12 @@ const Rapports: React.FC = () => {
         
         const response = await updateRapport(
           currentRapport.id,
-          formValues.date,
-          formValues.motif,
-          formValues.bilan,
-          formValues.idMedecin
+          {
+            date: formValues.date,
+            motif: formValues.motif,
+            bilan: formValues.bilan,
+            idMedecin: formValues.idMedecin
+          }
         );
         
         console.log("Réponse de l'API pour la mise à jour:", response.data);
@@ -667,19 +671,19 @@ const Rapports: React.FC = () => {
       try {
         console.log("Suppression du rapport:", currentRapport.id);
         const response = await deleteRapport(currentRapport.id);
-        console.log("Réponse de l'API pour la suppression:", response.data);
+        console.log("Réponse de l'API pour la suppression:", response);
         
-        if (response.data && response.data.status === "success") {
+        if (response.status === "success") {
           // Remove from local state
           const updatedRapports = rapports.filter(r => r.id !== currentRapport.id);
           setRapports(updatedRapports);
           setFilteredRapports(updatedRapports);
           setSnackbar({ open: true, message: 'Rapport supprimé avec succès', severity: 'success' });
         } else {
-          console.error("Erreur dans la réponse de l'API:", response.data);
+          console.error("Erreur dans la réponse de l'API:", response);
           setSnackbar({ 
             open: true, 
-            message: `Erreur lors de la suppression: ${response.data?.message || 'Erreur inconnue'}`, 
+            message: `Erreur lors de la suppression: ${response.message || 'Erreur inconnue'}`, 
             severity: 'error' 
           });
         }

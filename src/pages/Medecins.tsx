@@ -207,14 +207,15 @@ const Medecins: React.FC = () => {
     try {
       if (openAddDialog) {
         // Add new doctor
-        const response = await addMedecin(
-          formValues.nom || '',
-          formValues.prenom || '',
-          formValues.adresse || '',
-          formValues.tel || '',
-          formValues.specialitecomplementaire || '',
-          formValues.departement || ''
-        );
+        const response = await addMedecin({
+          id: (Math.floor(Math.random() * 100000)).toString(),
+          nom: formValues.nom || '',
+          prenom: formValues.prenom || '',
+          adresse: formValues.adresse || '',
+          tel: formValues.tel || '',
+          specialiteComplementaire: formValues.specialitecomplementaire || '',
+          departement: formValues.departement || ''
+        });
         
         if (response.data && response.data.status === "success") {
           // Refresh the list
@@ -230,9 +231,11 @@ const Medecins: React.FC = () => {
         if (currentMedecin) {
           const response = await updateMedecin(
             currentMedecin.id.toString(),
-            formValues.adresse || '',
-            formValues.tel || '',
-            formValues.specialitecomplementaire || ''
+            {
+              adresse: formValues.adresse || '',
+              tel: formValues.tel || '',
+              specialiteComplementaire: formValues.specialitecomplementaire || ''
+            }
           );
           
           if (response.data && response.data.status === "success") {

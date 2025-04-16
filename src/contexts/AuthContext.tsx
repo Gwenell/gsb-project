@@ -1,18 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { login as apiLogin, logout as apiLogout } from '../services/api';
+import { login as apiLogin, logout as apiLogout, getCurrentUser } from '../services/api';
 
 // Interface User mise à jour avec tous les champs nécessaires
 export interface User {
   id: string;
   nom: string;
   prenom: string;
-  login: string;
-  email: string;
-  adresse: string;
-  cp: string;
-  ville: string;
-  dateEmbauche: string;
-  type_utilisateur: 'admin' | 'administrateur' | 'visiteur';
+  username?: string;
+  adresse?: string;
+  cp?: string;
+  ville?: string;
+  dateEmbauche?: string;
+  type_utilisateur: 'visiteur' | 'comptable' | 'directeur' | 'admin' | 'administrateur';
+  idRegion?: string;
+  email?: string;
+  login?: string;
 }
 
 interface AuthContextType {
@@ -21,6 +23,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   loading: boolean;
   error: string | null;
+  isVisiteur: () => boolean;
+  isDirecteur: () => boolean;
+  isComptable: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,20 +44,36 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start as loading to check token
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Vérifier si un utilisateur est déjà connecté au chargement initial
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error('Error parsing stored user:', err);
-        localStorage.removeItem('user');
+    // Check if user is already logged in
+    const checkUser = async () => {
+      const storedUser = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      
+      if (storedUser && token) {
+        try {
+          // Verify token is valid by getting current user
+          const response = await getCurrentUser();
+          if (response.status === 'success') {
+            setUser(response.data);
+          } else {
+            // Token invalid, clear storage
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+          }
+        } catch (err) {
+          console.error('Error checking authentication:', err);
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+        }
       }
-    }
+      setLoading(false);
+    };
+    
+    checkUser();
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -66,26 +87,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
       
-      // Utilisateur connecté avec succès
-      const userData: User = {
-        id: response.data.id,
-        nom: response.data.nom,
-        prenom: response.data.prenom,
-        login: response.data.login || username,
-        email: response.data.email || '',
-        adresse: response.data.adresse || '',
-        cp: response.data.cp || '',
-        ville: response.data.ville || '',
-        dateEmbauche: response.data.dateEmbauche || '',
-        type_utilisateur: response.data.type_utilisateur || 'visiteur'
-      };
-      
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(response.data);
     } catch (err) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Une erreur est survenue lors de la connexion');
-      throw err; // Propager l'erreur pour que le composant Login puisse la gérer
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -96,7 +102,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       await apiLogout();
       setUser(null);
-      localStorage.removeItem('user');
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
@@ -104,12 +109,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Helper functions to check user roles
+  const isVisiteur = () => {
+    return user?.type_utilisateur === 'visiteur';
+  };
+
+  const isDirecteur = () => {
+    return user?.type_utilisateur === 'directeur';
+  };
+
+  const isComptable = () => {
+    return user?.type_utilisateur === 'comptable';
+  };
+
   const value = {
     user,
     login,
     logout,
     loading,
-    error
+    error,
+    isVisiteur,
+    isDirecteur,
+    isComptable
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

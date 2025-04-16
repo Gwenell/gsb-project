@@ -14,6 +14,7 @@ import Medicaments from './pages/Medicaments';
 import Rapports from './pages/Rapports';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
+import AssignMedicaments from './pages/AssignMedicaments';
 
 const ProtectedRoute = ({ element }: { element: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -41,6 +42,7 @@ function App() {
             <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
             <Route path="/medecins" element={<ProtectedRoute element={<Medecins />} />} />
             <Route path="/medicaments" element={<ProtectedRoute element={<Medicaments />} />} />
+            <Route path="/assign-medicaments" element={<ProtectedRoute element={<AssignMedicaments />} />} />
             <Route path="/rapports" element={<ProtectedRoute element={<Rapports />} />} />
             <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
             <Route path="*" element={<NotFound />} />

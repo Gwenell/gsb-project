@@ -338,14 +338,14 @@ const Medicaments: React.FC = () => {
         // Add new medicament
         console.log("Ajout d'un nouveau médicament:", formValues);
         
-        const response = await addMedicament(
-          formValues.id?.toString() || (Math.floor(Math.random() * 100000)).toString(), // Generate temp ID
-          formValues.nom_commercial || '',
-          formValues.id_famille || '',
-          formValues.composition || '',
-          formValues.effets || '',
-          formValues.contre_indications || ''
-        );
+        const response = await addMedicament({
+          id: formValues.id?.toString() || (Math.floor(Math.random() * 100000)).toString(), // Generate temp ID
+          nomCommercial: formValues.nom_commercial || '',
+          idFamille: formValues.id_famille || '',
+          composition: formValues.composition || '',
+          effets: formValues.effets || '',
+          contreIndications: formValues.contre_indications || ''
+        });
         
         console.log("Réponse API pour l'ajout:", response.data);
         
@@ -363,7 +363,7 @@ const Medicaments: React.FC = () => {
         }
       } else if (currentMedicament) {
         // Update existing medicament
-        console.log("Mise à jour du médicament:", {
+        console.log("Mise à jour du médicament avec les valeurs:", {
           id: currentMedicament.id,
           composition: formValues.composition,
           effets: formValues.effets,
@@ -372,9 +372,11 @@ const Medicaments: React.FC = () => {
         
         const response = await updateMedicament(
           currentMedicament.id,
-          formValues.composition || '',
-          formValues.effets || '',
-          formValues.contre_indications || ''
+          {
+            composition: formValues.composition || '',
+            effets: formValues.effets || '',
+            contreIndications: formValues.contre_indications || ''
+          }
         );
         
         console.log("Réponse API pour la mise à jour:", response.data);
