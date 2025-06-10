@@ -136,6 +136,17 @@ const Login: React.FC = () => {
               >
                 {loading ? <CircularProgress size={24} color="inherit" /> : 'Se connecter'}
               </Button>
+              
+              <Button
+                fullWidth
+                variant="outlined"
+                color="primary"
+                size="large"
+                sx={{ mb: 2, py: 1.2 }}
+                onClick={() => navigate('/dashboard')}
+              >
+                Visiter sans connexion
+              </Button>
             </Box>
           </Paper>
         </motion.div>

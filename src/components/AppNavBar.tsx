@@ -81,16 +81,12 @@ const AppNavBar: React.FC<AppNavBarProps> = ({ window }) => {
     return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
   };
 
-  const menuItems = [
+  // Menu accessible à tous les utilisateurs (connectés ou non)
+  const publicMenuItems = [
     {
       text: 'Tableau de bord',
       icon: <DashboardIcon />,
       path: '/dashboard',
-    },
-    {
-      text: 'Rapports',
-      icon: <DescriptionIcon />,
-      path: '/rapports',
     },
     {
       text: 'Médecins',
@@ -103,6 +99,20 @@ const AppNavBar: React.FC<AppNavBarProps> = ({ window }) => {
       path: '/medicaments',
     },
   ];
+
+  // Menu accessible uniquement aux utilisateurs connectés
+  const authenticatedMenuItems = [
+    {
+      text: 'Rapports',
+      icon: <DescriptionIcon />,
+      path: '/rapports',
+    },
+  ];
+
+  // Combiner les menus en fonction de l'état d'authentification
+  const menuItems = user 
+    ? [...publicMenuItems, ...authenticatedMenuItems] 
+    : publicMenuItems;
 
   const container = window !== undefined ? () => window().document.body : undefined;
 
@@ -160,8 +170,10 @@ const AppNavBar: React.FC<AppNavBarProps> = ({ window }) => {
           </Box>
           
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {user ? (
+              <>
             <Typography variant="body1" sx={{ mr: 2, display: { xs: 'none', md: 'block' } }}>
-              {user ? `${user.prenom} ${user.nom}` : ''}
+                  {user.prenom} {user.nom}
             </Typography>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <IconButton
@@ -173,10 +185,27 @@ const AppNavBar: React.FC<AppNavBarProps> = ({ window }) => {
                 color="inherit"
               >
                 <Avatar sx={{ width: 32, height: 32, bgcolor: theme.palette.secondary.main }}>
-                  {user ? getInitials(user.nom, user.prenom) : '?'}
+                      {getInitials(user.nom, user.prenom)}
                 </Avatar>
               </IconButton>
             </motion.div>
+              </>
+            ) : (
+              <Button 
+                color="inherit" 
+                variant="outlined" 
+                onClick={() => navigate('/login')}
+                sx={{ 
+                  borderColor: 'rgba(255,255,255,0.5)',
+                  '&:hover': {
+                    borderColor: 'rgba(255,255,255,0.8)',
+                    bgcolor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                Connexion
+              </Button>
+            )}
           </Box>
         </Toolbar>
       </AppBar>
@@ -238,6 +267,26 @@ const AppNavBar: React.FC<AppNavBarProps> = ({ window }) => {
                   </ListItemButton>
                 </ListItem>
               ))}
+
+              {/* Bouton de connexion dans le drawer si l'utilisateur n'est pas connecté */}
+              {!user && (
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={() => handleNavigation('/login')}
+                    sx={{
+                      color: theme.palette.secondary.contrastText,
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.08)',
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ color: theme.palette.secondary.contrastText, minWidth: 40 }}>
+                      <PersonIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="Connexion" />
+                  </ListItemButton>
+                </ListItem>
+              )}
             </List>
           </Box>
         </Drawer>

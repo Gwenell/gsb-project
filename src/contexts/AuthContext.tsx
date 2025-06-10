@@ -11,7 +11,7 @@ export interface User {
   cp?: string;
   ville?: string;
   dateEmbauche?: string;
-  type_utilisateur: 'visiteur' | 'comptable' | 'directeur' | 'admin' | 'administrateur';
+  type_utilisateur: 'visiteur' | 'delegue' | 'responsable' | 'directeur' | 'comptable' | 'admin' | 'administrateur';
   idRegion?: string;
   email?: string;
   login?: string;
@@ -44,7 +44,8 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Start as loading to check token
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

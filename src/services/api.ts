@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base API URL for Laravel backend
-const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8001/api';
 
 // Create an Axios instance with default config
 const api = axios.create({
@@ -34,8 +34,8 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
-      // Redirect to login if unauthorized
-      window.location.href = '/login';
+      // Do not redirect to login for public pages
+      // This allows pages like Dashboard, Medecins, and Medicaments to load data even if not authenticated
     }
     return Promise.reject(error);
   }
@@ -138,17 +138,45 @@ export const getCurrentUser = async () => {
 export const getAllMedecins = async (search: string = '') => {
   try {
     const params = search ? { search } : {};
-    const response = await api.get('/medecins', { params });
+    console.log('Récupération des médecins avec paramètres:', params);
     
-      return {
+    const response = await api.get('/medecins', { params });
+    console.log('Réponse médecins brute:', response);
+    
+    let medecinsData = null;
+    
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        medecinsData = response.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        medecinsData = response.data.data;
+      } else if (response.data.medecins && Array.isArray(response.data.medecins)) {
+        medecinsData = response.data.medecins;
+      } else {
+        // Tenter d'extraire n'importe quel tableau dans la réponse
+        const possibleArrays = Object.values(response.data).filter(val => Array.isArray(val));
+        if (possibleArrays.length > 0) {
+          medecinsData = possibleArrays[0];
+        }
+      }
+    }
+    
+    return {
       status: 'success',
-      data: response.data
+      data: medecinsData || []
     };
   } catch (error) {
     console.error("Error fetching medecins:", error);
+    let errorMessage = "Erreur lors de la récupération des médecins";
+    
+    if (error.response) {
+      console.error("Détails de l'erreur:", error.response.data);
+      errorMessage = error.response.data?.message || errorMessage;
+    }
+    
     return {
       status: 'error',
-      message: error instanceof Error ? error.message : "Erreur lors de la récupération des médecins",
+      message: error instanceof Error ? error.message : errorMessage,
       data: []
     };
   }
@@ -175,17 +203,61 @@ export const getMedecinById = async (id: string) => {
 export const getAllMedicaments = async (search: string = '') => {
   try {
     const params = search ? { search } : {};
-    const response = await api.get('/medicaments', { params });
+    console.log('Récupération des médicaments avec paramètres:', params);
     
-      return {
+    const response = await api.get('/medicaments', { params });
+    console.log('Réponse médicaments brute:', response);
+    
+    let medicamentsData = null;
+    
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        medicamentsData = response.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        medicamentsData = response.data.data;
+      } else if (response.data.medicaments && Array.isArray(response.data.medicaments)) {
+        medicamentsData = response.data.medicaments;
+      } else {
+        // Tenter d'extraire n'importe quel tableau dans la réponse
+        const possibleArrays = Object.values(response.data).filter(val => Array.isArray(val));
+        if (possibleArrays.length > 0) {
+          medicamentsData = possibleArrays[0];
+        }
+      }
+    }
+    
+    // Normaliser les données des médicaments pour garantir une structure cohérente
+    if (medicamentsData && Array.isArray(medicamentsData)) {
+      medicamentsData = medicamentsData.map(med => {
+        // S'assurer que chaque médicament a le champ nom_commercial (ou nomCommercial)
+        const normalizedMed = {
+          ...med,
+          id: med.id || '',
+          nom_commercial: med.nom_commercial || med.nomCommercial || '',
+          nomCommercial: med.nomCommercial || med.nom_commercial || '',
+          id_famille: med.id_famille || med.idFamille || '',
+          idFamille: med.idFamille || med.id_famille || '',
+        };
+        return normalizedMed;
+      });
+    }
+    
+    return {
       status: 'success',
-      data: response.data
+      data: medicamentsData || []
     };
   } catch (error) {
     console.error("Error fetching medicaments:", error);
+    let errorMessage = "Erreur lors de la récupération des médicaments";
+    
+    if (error.response) {
+      console.error("Détails de l'erreur:", error.response.data);
+      errorMessage = error.response.data?.message || errorMessage;
+    }
+    
     return {
       status: 'error',
-      message: error instanceof Error ? error.message : "Erreur lors de la récupération des médicaments",
+      message: error instanceof Error ? error.message : errorMessage,
       data: []
     };
   }
@@ -423,16 +495,45 @@ export const getAllFamilles = async () => {
 // Rapports
 export const getRapportsByVisiteur = async (visiteurId: string) => {
   try {
+    console.log(`Récupération des rapports pour le visiteur: ${visiteurId}`);
+    
     const response = await api.get(`/visiteurs/${visiteurId}/rapports`);
+    console.log('Réponse rapports brute:', response);
+    
+    let rapportsData = null;
+    
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        rapportsData = response.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        rapportsData = response.data.data;
+      } else if (response.data.rapports && Array.isArray(response.data.rapports)) {
+        rapportsData = response.data.rapports;
+      } else {
+        // Tenter d'extraire n'importe quel tableau dans la réponse
+        const possibleArrays = Object.values(response.data).filter(val => Array.isArray(val));
+        if (possibleArrays.length > 0) {
+          rapportsData = possibleArrays[0];
+        }
+      }
+    }
+    
     return {
       status: 'success',
-      data: response.data
+      data: rapportsData || []
     };
   } catch (error) {
     console.error(`Error fetching rapports for visiteur ${visiteurId}:`, error);
+    let errorMessage = "Erreur lors de la récupération des rapports";
+    
+    if (error.response) {
+      console.error("Détails de l'erreur:", error.response.data);
+      errorMessage = error.response.data?.message || errorMessage;
+    }
+    
     return {
       status: 'error',
-      message: error instanceof Error ? error.message : "Erreur lors de la récupération des rapports",
+      message: error instanceof Error ? error.message : errorMessage,
       data: []
     };
   }
@@ -527,6 +628,22 @@ export const updateMedecin = async (id: string, medecinData: {
   }
 };
 
+export const deleteMedecin = async (id: string) => {
+  try {
+    await api.delete(`/medecins/${id}`);
+    return {
+      status: 'success',
+      message: 'Médecin supprimé avec succès'
+    };
+  } catch (error) {
+    console.error(`Error deleting medecin ${id}:`, error);
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : "Erreur lors de la suppression du médecin"
+    };
+  }
+};
+
 // Rapports
 export const addRapport = async (rapportData: any) => {
   try {
@@ -540,6 +657,137 @@ export const addRapport = async (rapportData: any) => {
     return {
       status: 'error',
       message: error instanceof Error ? error.message : "Erreur lors de la création du rapport",
+      data: null
+    };
+  }
+};
+
+// Nouvelles fonctions pour GSB
+
+// Motifs standardisés
+export const getMotifs = async () => {
+  try {
+    const response = await api.get('/motifs');
+    return {
+      status: 'success',
+      data: response.data
+    };
+  } catch (error) {
+    console.error("Error fetching motifs:", error);
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : "Erreur lors de la récupération des motifs",
+      data: []
+    };
+  }
+};
+
+// Rapports à valider
+export const getRapportsToValidate = async (mois: string = '') => {
+  try {
+    const params = mois ? { mois } : {};
+    const response = await api.get('/rapports-validation', { params });
+    return {
+      status: 'success',
+      data: response.data
+    };
+  } catch (error) {
+    console.error("Error fetching rapports to validate:", error);
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : "Erreur lors de la récupération des rapports à valider",
+      data: []
+    };
+  }
+};
+
+// Valider un rapport
+export const validerRapport = async (id: string, data: { nbJustificatifs?: number; totalValide?: number }) => {
+  try {
+    const response = await api.put(`/rapports/${id}/valider`, data);
+    return {
+      status: 'success',
+      data: response.data
+    };
+  } catch (error) {
+    console.error("Error validating rapport:", error);
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : "Erreur lors de la validation du rapport",
+      data: null
+    };
+  }
+};
+
+// Rembourser un rapport
+export const rembourserRapport = async (id: string) => {
+  try {
+    const response = await api.put(`/rapports/${id}/rembourser`);
+    return {
+      status: 'success',
+      data: response.data
+    };
+  } catch (error) {
+    console.error("Error reimbursing rapport:", error);
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : "Erreur lors du remboursement du rapport",
+      data: null
+    };
+  }
+};
+
+// Statistiques
+export const getStatistiques = async (periode: string = 'mois', date: string = '') => {
+  try {
+    const params: { periode: string; date?: string } = { periode };
+    if (date) params.date = date;
+    
+    console.log('Récupération des statistiques avec paramètres:', params);
+    const response = await api.get('/statistiques', { params });
+    console.log('Réponse statistiques brute:', response);
+    
+    // S'assurer que les données retournées contiennent un tableau top_medicaments
+    if (response.data && !response.data.top_medicaments) {
+      console.log('Aucun top_medicaments trouvé dans la réponse, ajout d\'une liste vide');
+      response.data.top_medicaments = [];
+    }
+    
+    return {
+      status: 'success',
+      data: response.data || {}
+    };
+  } catch (error) {
+    console.error("Error fetching statistics:", error);
+    let errorMessage = "Erreur lors de la récupération des statistiques";
+    
+    if (error.response) {
+      console.error("Détails de l'erreur:", error.response.data);
+      errorMessage = error.response.data?.message || errorMessage;
+    }
+    
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : errorMessage,
+      data: { top_medicaments: [] }  // Renvoyer un objet avec un tableau vide au lieu de null
+    };
+  }
+};
+
+// Rapports de l'équipe
+export const getRapportsEquipe = async (mois: string = '') => {
+  try {
+    const params = mois ? { mois } : {};
+    const response = await api.get('/equipe/rapports', { params });
+    return {
+      status: 'success',
+      data: response.data
+    };
+  } catch (error) {
+    console.error("Error fetching team reports:", error);
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : "Erreur lors de la récupération des rapports de l'équipe",
       data: null
     };
   }

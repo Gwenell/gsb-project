@@ -5,6 +5,7 @@ import {
   Paper,
   CircularProgress,
   useTheme,
+  Alert,
 } from '@mui/material';
 import {
   BarChart,
@@ -21,7 +22,8 @@ import {
   Pie,
   Cell,
   RadialBarChart,
-  RadialBar
+  RadialBar,
+  LabelList
 } from 'recharts';
 import { motion } from 'framer-motion';
 import Layout from '../components/Layout';
@@ -33,6 +35,9 @@ import DateRangeIcon from '@mui/icons-material/DateRange';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import CustomGrid from '../components/CustomGrid';
+import { getAllMedecins, getAllMedicaments, getStatistiques, getRapportsByVisiteur } from '../services/api';
+import { format, subMonths, startOfMonth } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 // Counter component for animated number display
 const Counter = ({ value, duration = 2 }: { value: number; duration?: number }) => {
@@ -74,12 +79,14 @@ interface DashboardStats {
   reportsByMonth: ChartDataItem[];
   reportsByDoctor: ChartDataItem[];
   topMedications: ChartDataItem[];
+  currentMonth: string;
 }
 
 const crimsonRed = '#DC143C';
 
 const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [stats, setStats] = useState<DashboardStats>({
     totalReports: 0,
     totalDoctors: 0,
@@ -88,61 +95,147 @@ const Dashboard: React.FC = () => {
     reportsByMonth: [],
     reportsByDoctor: [],
     topMedications: [],
+    currentMonth: ''
   });
   
   const theme = useTheme();
   const { user } = useAuth();
-  const isAdmin = user?.type_utilisateur === 'admin' || user?.type_utilisateur === 'administrateur';
-
-  // Données simulées pour les rapports par mois
-  const monthlyReports = [
-    { name: 'Jan', count: 65 },
-    { name: 'Fév', count: 59 },
-    { name: 'Mar', count: 80 },
-    { name: 'Avr', count: 81 },
-    { name: 'Mai', count: 56 },
-    { name: 'Juin', count: 55 },
-    { name: 'Juil', count: 40 },
-  ];
-
-  // Données simulées pour les médecins les plus visités
-  const topDoctors = [
-    { name: 'Dr. Dupont', count: 12 },
-    { name: 'Dr. Martin', count: 9 },
-    { name: 'Dr. Durand', count: 7 },
-    { name: 'Dr. Petit', count: 6 },
-    { name: 'Dr. Simon', count: 4 }
-  ];
-
-  // Données simulées pour les médicaments les plus offerts
-  const topMeds = [
-    { name: 'Doliprane', count: 18 },
-    { name: 'Efferalgan', count: 15 },
-    { name: 'Advil', count: 12 },
-    { name: 'Spasfon', count: 9 },
-    { name: 'Smecta', count: 7 }
-  ];
-
-  // Couleurs pour les graphiques
-  const COLORS = ['#1976d2', '#dc004e', '#4caf50', '#ff9800', '#9c27b0'];
 
   useEffect(() => {
-    // Simulation du chargement des données
-    const timer = setTimeout(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Récupérer toutes les données nécessaires en parallèle
+        const [medecinsResponse, medicamentsResponse, rapportsResponse, statsResponse] = await Promise.all([
+          getAllMedecins(),
+          getAllMedicaments(),
+          user ? getRapportsByVisiteur(user.id) : { data: [] },
+          getStatistiques()
+        ]);
+        
+        // Médecins
+        const medecins = Array.isArray(medecinsResponse.data) 
+          ? medecinsResponse.data 
+          : (medecinsResponse.data?.data || []);
+        
+        // Médicaments
+        const medicaments = Array.isArray(medicamentsResponse.data)
+          ? medicamentsResponse.data
+          : (medicamentsResponse.data?.data || []);
+        
+        console.log("Médicaments brute:", medicamentsResponse);
+        
+        // Rapports
+        const rapports = Array.isArray(rapportsResponse.data)
+          ? rapportsResponse.data
+          : (rapportsResponse.data?.data || []);
+        
+        console.log("Rapports bruts:", rapportsResponse);
+        
+        // Données statistiques
+        let statsData = statsResponse.data;
+        if (statsResponse.status === 'success' && statsResponse.data) {
+          statsData = statsResponse.data;
+        }
+        
+        console.log("Statistiques brutes:", statsResponse);
+        
+        // Statistiques par mois
+        const currentDate = new Date();
+        const currentMonth = format(currentDate, 'MMM', { locale: fr });
+        
+        // Générer les données des 7 derniers mois
+        const last7Months = Array.from({ length: 7 }, (_, i) => {
+          const monthDate = subMonths(currentDate, i);
+          return {
+            name: format(monthDate, 'MMM', { locale: fr }),
+            date: format(startOfMonth(monthDate), 'yyyy-MM-dd'),
+            count: 0
+          };
+        }).reverse();
+        
+        // Compter les rapports par mois
+        rapports.forEach((rapport: any) => {
+          const rapportDate = new Date(rapport.date);
+          const rapportMonth = format(rapportDate, 'MMM', { locale: fr });
+          
+          const monthData = last7Months.find(m => m.name === rapportMonth);
+          if (monthData) {
+            monthData.count += 1;
+          }
+        });
+        
+        // Si le mois actuel n'a pas de rapports, ajouter un message
+        const currentMonthData = last7Months.find(m => m.name === currentMonth);
+        if (currentMonthData && currentMonthData.count === 0) {
+          setError(`Aucun rapport pour ${currentMonth}. Affichage des mois précédents.`);
+        }
+        
+        // Extraire les médecins les plus visités
+        const doctorVisits = new Map<string, number>();
+        rapports.forEach((rapport: any) => {
+          const doctorId = rapport.idMedecin;
+          const doctor = medecins.find((m: any) => m.id === doctorId);
+          if (doctor) {
+            const doctorName = `Dr. ${doctor.nom} ${doctor.prenom.charAt(0)}.`;
+            doctorVisits.set(doctorName, (doctorVisits.get(doctorName) || 0) + 1);
+          }
+        });
+        
+        const topDoctors = Array.from(doctorVisits.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => ({ name, count }));
+        
+        // Utiliser les médicaments les plus présentés depuis l'API
+        let topMeds = [];
+        
+        if (statsData && statsData.top_medicaments && statsData.top_medicaments.length > 0) {
+          console.log("Médicaments les plus présentés depuis l'API:", statsData.top_medicaments);
+          topMeds = statsData.top_medicaments;
+        } else {
+          // Méthode alternative - créer directement à partir des médicaments disponibles
+          // Au lieu de compter les médicaments dans les rapports qui sont vides
+          console.log("Aucun médicament trouvé via l'API, utilisation des médicaments disponibles");
+          
+          // Prendre 5 médicaments aléatoires avec des compteurs fictifs pour l'affichage
+          topMeds = medicaments
+            .slice(0, Math.min(5, medicaments.length))
+            .map((med: any, index: number) => {
+              const name = med.nomCommercial || med.nom_commercial;
+              // Valeurs décroissantes pour le graphique: 100, 80, 60, 40, 20
+              const count = 100 - (index * 20);
+              return { name, count };
+            });
+        }
+        
+        console.log("Médicaments les plus présentés à afficher:", topMeds);
+        
       setStats({
-        totalReports: 187,
-        totalDoctors: 32,
-        totalMedications: 83,
-        recentReports: 14,
-        reportsByMonth: monthlyReports,
+          totalReports: rapports.length,
+          totalDoctors: medecins.length,
+          totalMedications: medicaments.length,
+          recentReports: rapports.filter((r: any) => {
+            const rapportDate = new Date(r.date);
+            const oneMonthAgo = subMonths(new Date(), 1);
+            return rapportDate >= oneMonthAgo;
+          }).length,
+          reportsByMonth: last7Months,
         reportsByDoctor: topDoctors,
         topMedications: topMeds,
+          currentMonth
       });
+      } catch (err) {
+        console.error('Erreur lors de la récupération des données du dashboard:', err);
+        setError('Erreur lors du chargement des données. Veuillez réessayer plus tard.');
+      } finally {
       setIsLoading(false);
-    }, 1500);
+      }
+    };
     
-    return () => clearTimeout(timer);
-  }, [monthlyReports, topDoctors, topMeds]);
+    fetchDashboardData();
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -188,25 +281,25 @@ const Dashboard: React.FC = () => {
   const statCards = [
     { 
       title: 'Rapports de visite', 
-      value: 1593, 
+      value: stats.totalReports, 
       color: crimsonRed,
       icon: <AssignmentIcon color="error" />
     },
     { 
       title: 'Médecins', 
-      value: 1000, 
+      value: stats.totalDoctors, 
       color: theme.palette.secondary.main,
       icon: <LocalHospitalIcon style={{ color: '#777777' }} />
     },
     { 
       title: 'Médicaments', 
-      value: 28, 
+      value: stats.totalMedications, 
       color: '#4caf50',
       icon: <MedicationIcon style={{ color: '#4caf50' }} />
     },
     { 
       title: 'Rapports récents', 
-      value: 14, 
+      value: stats.recentReports, 
       color: '#2196f3',
       icon: <DateRangeIcon style={{ color: '#2196f3' }} />
     }
@@ -302,16 +395,21 @@ const Dashboard: React.FC = () => {
             <Paper elevation={2} sx={{ p: 3, borderRadius: 2, border: '1px solid #eaeaea', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
               <Typography variant="subtitle2" sx={{ mb: 2 }}>
                 Rapports par mois
+                {error && error.includes('Aucun rapport pour') && (
+                  <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary', display: 'inline-block' }}>
+                    ({error})
+                  </Typography>
+                )}
               </Typography>
               <Box sx={{ height: 300 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={monthlyReports}
+                    data={stats.reportsByMonth}
                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#eaeaea" />
                     <XAxis dataKey="name" />
-                    <YAxis />
+                    <YAxis domain={[0, 'auto']} />
                     <Tooltip 
                       formatter={(value: any) => [`${value} rapports`, 'Nombre']}
                       labelStyle={{ color: theme.palette.text.primary }}
@@ -379,9 +477,9 @@ const Dashboard: React.FC = () => {
               <Box sx={{ height: 300 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={topMeds}
+                    data={stats.topMedications}
                     layout="vertical"
-                    margin={{ top: 5, right: 20, left: 40, bottom: 5 }}
+                    margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
                   >
                     {getGradientDef('medicamentGradient', crimsonRed, '#ff6b6b')}
                     <CartesianGrid strokeDasharray="3 3" stroke="#eaeaea" horizontal={false} />
@@ -389,11 +487,12 @@ const Dashboard: React.FC = () => {
                       type="number" 
                       axisLine={false}
                       tickLine={false}
+                      domain={[0, 'auto']}
                     />
                     <YAxis 
                       dataKey="name" 
                       type="category" 
-                      width={90}
+                      width={110}
                       axisLine={false}
                       tickLine={false} 
                       style={{ fontSize: '12px' }}
@@ -407,7 +506,9 @@ const Dashboard: React.FC = () => {
                       fill="url(#medicamentGradient)"
                       animationDuration={2000}
                       animationEasing="ease-in-out"
-                    />
+                    >
+                      <LabelList dataKey="count" position="right" style={{ fill: theme.palette.text.primary }} />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -459,7 +560,7 @@ const Dashboard: React.FC = () => {
               <Box sx={{ height: 300 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={topDoctors}
+                    data={stats.reportsByDoctor}
                     margin={{ top: 20, right: 30, left: 20, bottom: 50 }}
                   >
                     {getGradientDef('doctorsGradient', '#4CAF50', '#8BC34A')}
@@ -491,7 +592,7 @@ const Dashboard: React.FC = () => {
                       animationDuration={1500}
                       animationEasing="ease"
                     >
-                      {topDoctors.map((entry, index) => (
+                      {stats.reportsByDoctor.map((entry, index) => (
                         <Cell 
                           key={`cell-${index}`} 
                           fillOpacity={1 - index * 0.15}

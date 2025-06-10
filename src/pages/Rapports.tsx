@@ -42,7 +42,9 @@ import {
   Close as CloseIcon,
   Person as PersonIcon,
   Assignment as AssignmentIcon,
-  Visibility as VisibilityIcon
+  Visibility as VisibilityIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -59,6 +61,7 @@ import {
 } from '../services/api';
 import Layout from '../components/Layout';
 import CustomGrid from '../components/CustomGrid';
+import { useNavigate } from 'react-router-dom';
 
 // Crimson red for accents
 const crimsonRed = '#DC143C';
@@ -139,6 +142,15 @@ const Rapports: React.FC = () => {
   const [medicaments, setMedicaments] = useState<Medicament[]>([]);
   const [currentMedicaments, setCurrentMedicaments] = useState<Medicament[]>([]);
   
+  // Ajout du state pour le tri
+  const [sortBy, setSortBy] = useState<{
+    field: keyof Rapport | '';
+    order: 'asc' | 'desc';
+  }>({
+    field: 'date',
+    order: 'desc'
+  });
+  
   // Form values for create/edit
   const [formValues, setFormValues] = useState<FormValues>({
     date: new Date().toISOString().split('T')[0],
@@ -153,6 +165,8 @@ const Rapports: React.FC = () => {
     id: '',
     quantite: 1
   });
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchMedecins = async () => {
@@ -350,40 +364,77 @@ const Rapports: React.FC = () => {
   }, [searchTerm, filterMotif, filterDateStart, filterDateEnd, rapports]);
 
   const filterRapports = () => {
-    let filtered = [...rapports];
+    if (rapports.length > 0) {
+      let result = [...rapports];
 
     // Filtre par terme de recherche
     if (searchTerm) {
-      filtered = filtered.filter(rapport => 
-        rapport.motif.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rapport.bilan.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rapport.nomMedecin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rapport.prenomMedecin?.toLowerCase().includes(searchTerm.toLowerCase())
+        const search = searchTerm.toLowerCase();
+        result = result.filter(
+          (rapport) =>
+            rapport.motif?.toLowerCase().includes(search) ||
+            rapport.bilan?.toLowerCase().includes(search) ||
+            rapport.nomMedecin?.toLowerCase().includes(search) ||
+            rapport.prenomMedecin?.toLowerCase().includes(search)
       );
     }
 
     // Filtre par motif
     if (filterMotif) {
-      filtered = filtered.filter(rapport => 
-        rapport.motif.toLowerCase() === filterMotif.toLowerCase()
+        result = result.filter(
+          (rapport) => rapport.motif === filterMotif
       );
     }
 
-    // Filtre par date de début
-    if (filterDateStart) {
-      filtered = filtered.filter(rapport => 
-        new Date(rapport.date) >= new Date(filterDateStart)
-      );
+      // Filtre par date
+      if (filterDateStart && filterDateEnd) {
+        result = result.filter(
+          (rapport) => {
+            const reportDate = new Date(rapport.date);
+            const startDate = new Date(filterDateStart);
+            const endDate = new Date(filterDateEnd);
+            endDate.setHours(23, 59, 59, 999); // Fin de journée
+            return reportDate >= startDate && reportDate <= endDate;
+          }
+        );
+      } else if (filterDateStart) {
+        result = result.filter(
+          (rapport) => new Date(rapport.date) >= new Date(filterDateStart)
+        );
+      } else if (filterDateEnd) {
+        const endDate = new Date(filterDateEnd);
+        endDate.setHours(23, 59, 59, 999); // Fin de journée
+        result = result.filter(
+          (rapport) => new Date(rapport.date) <= endDate
+        );
+      }
+
+      // Tri des résultats
+      if (sortBy.field) {
+        result.sort((a, b) => {
+          // Pour gérer différents types de champs
+          let valueA = a[sortBy.field as keyof Rapport];
+          let valueB = b[sortBy.field as keyof Rapport];
+          
+          // Traitement spécial pour la date
+          if (sortBy.field === 'date') {
+            const timeA = new Date(valueA as string).getTime();
+            const timeB = new Date(valueB as string).getTime();
+            return sortBy.order === 'asc' ? timeA - timeB : timeB - timeA;
+          }
+          
+          if (valueA < valueB) {
+            return sortBy.order === 'asc' ? -1 : 1;
+          }
+          if (valueA > valueB) {
+            return sortBy.order === 'asc' ? 1 : -1;
+          }
+          return 0;
+        });
     }
 
-    // Filtre par date de fin
-    if (filterDateEnd) {
-      filtered = filtered.filter(rapport => 
-        new Date(rapport.date) <= new Date(filterDateEnd)
-      );
+      setFilteredRapports(result);
     }
-
-    setFilteredRapports(filtered);
   };
 
   // Handle page change
@@ -696,11 +747,16 @@ const Rapports: React.FC = () => {
   };
 
   const clearFilters = () => {
-    setSearchTerm('');
     setFilterMotif('');
     setFilterDateStart('');
     setFilterDateEnd('');
+    setSearchTerm('');
     setOpenFilter(false);
+    // Réinitialiser le tri aux valeurs par défaut
+    setSortBy({
+      field: 'date',
+      order: 'desc'
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -757,6 +813,14 @@ const Rapports: React.FC = () => {
     }
   };
 
+  // Ajouter cette nouvelle fonction pour gérer les changements de tri
+  const handleSortChange = (field: keyof Rapport) => {
+    setSortBy(prev => ({
+      field,
+      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
   return (
     <Layout title="Rapports de visite">
       <Box sx={{ mb: 4 }}>
@@ -797,26 +861,10 @@ const Rapports: React.FC = () => {
             }}
           >
             <Button
-              startIcon={<FilterIcon />}
-              onClick={() => setOpenFilter(!openFilter)}
-              variant={openFilter ? "contained" : "outlined"}
-              color="primary"
-              size="small"
-              sx={{
-                minWidth: 100,
-                '&:hover': {
-                  boxShadow: theme.shadows[2]
-                }
-              }}
-            >
-              Filtres
-            </Button>
-
-            <Button
               variant="contained"
               color="primary"
               startIcon={<AddIcon />}
-              onClick={handleAddRapport}
+              onClick={() => navigate('/rapports/nouveau')}
               sx={{
                 fontWeight: 500,
                 boxShadow: theme.shadows[2],
@@ -827,7 +875,54 @@ const Rapports: React.FC = () => {
             >
               Nouveau Rapport
             </Button>
+            <Button
+              variant="outlined"
+              startIcon={<FilterIcon />}
+              onClick={() => setOpenFilter(!openFilter)}
+              sx={{
+                fontWeight: 'medium'
+              }}
+            >
+              Filtres
+            </Button>
           </Box>
+        </Box>
+
+        {/* Options de tri */}
+        <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          <Typography variant="body2" sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+            Trier par:
+          </Typography>
+          <Button
+            variant={sortBy.field === 'date' ? "contained" : "outlined"}
+            color="primary"
+            onClick={() => handleSortChange('date')}
+            endIcon={sortBy.field === 'date' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
+            size="small"
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            Date
+          </Button>
+          <Button
+            variant={sortBy.field === 'motif' ? "contained" : "outlined"}
+            color="primary"
+            onClick={() => handleSortChange('motif')}
+            endIcon={sortBy.field === 'motif' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
+            size="small"
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            Motif
+          </Button>
+          <Button
+            variant={sortBy.field === 'nomMedecin' ? "contained" : "outlined"}
+            color="primary"
+            onClick={() => handleSortChange('nomMedecin')}
+            endIcon={sortBy.field === 'nomMedecin' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
+            size="small"
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            Médecin
+          </Button>
         </Box>
 
         {/* Filtres */}
@@ -922,7 +1017,7 @@ const Rapports: React.FC = () => {
                         variant="contained"
                         color="primary"
                         startIcon={<AddIcon />}
-                        onClick={handleAddRapport}
+                        onClick={() => navigate('/rapports/nouveau')}
                       >
                         Créer un nouveau rapport
                       </Button>

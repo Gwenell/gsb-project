@@ -39,11 +39,14 @@ import {
   Phone,
   LocationOn,
   Close as CloseIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { getAllMedecins, getMedecinById, addMedecin, updateMedecin } from '../services/api';
+import { getAllMedecins, getMedecinById, addMedecin, updateMedecin, deleteMedecin } from '../services/api';
 import Layout from '../components/Layout';
 import CustomGrid from '../components/CustomGrid';
 
@@ -77,6 +80,15 @@ const Medecins: React.FC = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(9);
+  
+  // Ajout du state pour le tri
+  const [sortBy, setSortBy] = useState<{
+    field: keyof Medecin | '';
+    order: 'asc' | 'desc';
+  }>({
+    field: 'nom',
+    order: 'asc'
+  });
 
   // Nouvelles valeurs pour l'édition/création
   const [formValues, setFormValues] = useState<Partial<Medecin>>({
@@ -88,7 +100,7 @@ const Medecins: React.FC = () => {
     departement: ''
   });
 
-  const isAdmin = user?.type_utilisateur === 'admin' || user?.type_utilisateur === 'administrateur';
+  const isAdmin = user?.type_utilisateur === 'admin' || user?.type_utilisateur === 'administrateur' || user?.type_utilisateur === 'responsable';
 
   // Récupérer les médecins
   useEffect(() => {
@@ -96,14 +108,22 @@ const Medecins: React.FC = () => {
       try {
         setLoading(true);
         const response = await getAllMedecins();
-        console.log("Médecins data:", response.data);
-        if (response.data && Array.isArray(response.data.data)) {
-          setMedecins(response.data.data);
-          setFilteredMedecins(response.data.data);
+        console.log("Médecins data:", response);
+        
+        if (response.status === 'success') {
+          let medecinsData = response.data;
+          if (Array.isArray(medecinsData) && medecinsData.length > 0) {
+            setMedecins(medecinsData);
+            setFilteredMedecins(medecinsData);
+          } else {
+            setMedecins([]);
+            setFilteredMedecins([]);
+            setError('Aucun médecin trouvé');
+          }
         } else {
           setMedecins([]);
           setFilteredMedecins([]);
-          setError('Aucune donnée trouvée');
+          setError(response.message || 'Erreur lors de la récupération des données');
         }
       } catch (error) {
         console.error("Erreur lors de la récupération des médecins:", error);
@@ -147,10 +167,32 @@ const Medecins: React.FC = () => {
             medecin.specialitecomplementaire.toLowerCase() === filterSpecialite.toLowerCase()
         );
       }
+      
+      // Tri des résultats
+      if (sortBy.field) {
+        result.sort((a, b) => {
+          let valueA = a[sortBy.field as keyof Medecin];
+          let valueB = b[sortBy.field as keyof Medecin];
+          
+          // Conversion en chaînes pour comparaison
+          if (typeof valueA === 'string' && typeof valueB === 'string') {
+            valueA = valueA.toLowerCase();
+            valueB = valueB.toLowerCase();
+          }
+          
+          if (valueA < valueB) {
+            return sortBy.order === 'asc' ? -1 : 1;
+          }
+          if (valueA > valueB) {
+            return sortBy.order === 'asc' ? 1 : -1;
+          }
+          return 0;
+        });
+      }
 
       setFilteredMedecins(result);
     }
-  }, [searchTerm, filterDept, filterSpecialite, medecins]);
+  }, [searchTerm, filterDept, filterSpecialite, medecins, sortBy]);
 
   const handleAddMedecin = () => {
     setFormValues({
@@ -258,21 +300,33 @@ const Medecins: React.FC = () => {
   };
 
   const handleConfirmDelete = async () => {
-    // In a real app, you would call an API to delete the doctor
     if (currentMedecin) {
       try {
-        // Assuming there's a delete endpoint
-        // const response = await deleteMedecin(currentMedecin.id);
+        setLoading(true);
+        const response = await deleteMedecin(currentMedecin.id.toString());
         
-        // For now, we'll just remove it from the local state
-        const updatedMedecins = medecins.filter(m => m.id !== currentMedecin.id);
-        setMedecins(updatedMedecins);
-        setFilteredMedecins(updatedMedecins);
-        setSnackbar({ open: true, message: 'Médecin supprimé avec succès', severity: 'success' });
+        if (response.status === 'success') {
+          // Refresh the list
+          const updatedResponse = await getAllMedecins();
+          if (updatedResponse.status === 'success') {
+            setMedecins(updatedResponse.data);
+            setFilteredMedecins(updatedResponse.data);
+          } else {
+            // If refreshing fails, just remove locally
+            const updatedMedecins = medecins.filter(m => m.id !== currentMedecin.id);
+            setMedecins(updatedMedecins);
+            setFilteredMedecins(updatedMedecins);
+          }
+          setSnackbar({ open: true, message: 'Médecin supprimé avec succès', severity: 'success' });
+        } else {
+          setSnackbar({ open: true, message: response.message || 'Erreur lors de la suppression du médecin', severity: 'error' });
+        }
         setOpenDeleteDialog(false);
       } catch (error) {
         console.error("Erreur lors de la suppression:", error);
         setSnackbar({ open: true, message: 'Erreur lors de la suppression du médecin', severity: 'error' });
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -349,6 +403,14 @@ const Medecins: React.FC = () => {
     page * rowsPerPage + rowsPerPage
   );
 
+  // Ajouter une fonction pour gérer les changements de tri
+  const handleSortChange = (field: keyof Medecin) => {
+    setSortBy(prev => ({
+      field,
+      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
   return (
     <Layout title="Médecins">
       <Box sx={{ mb: 4 }}>
@@ -363,64 +425,81 @@ const Medecins: React.FC = () => {
           }}
         >
           <Box sx={{ flex: 1, width: { xs: '100%', sm: 'auto' } }}>
+            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, maxWidth: 500 }}>
             <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Rechercher par nom, prénom ou adresse..."
+                  placeholder="Rechercher un médecin..."
+                  size="small"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon />
+                    <SearchIcon sx={{ color: '#2E2E2E' }} />
                   </InputAdornment>
-                ),
+                    )
               }}
-              sx={{ maxWidth: { sm: 400 } }}
+                  fullWidth
             />
-          </Box>
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              gap: 2,
-              width: { xs: '100%', sm: 'auto' },
-              justifyContent: { xs: 'space-between', sm: 'flex-end' }
-            }}
-          >
             <Button
-              startIcon={<FilterIcon />}
+                  variant={openFilter ? "contained" : "outlined"}
+              startIcon={<FilterIcon sx={{ color: openFilter ? 'inherit' : '#2E2E2E' }} />}
               onClick={() => setOpenFilter(!openFilter)}
-              variant={openFilter ? "contained" : "outlined"}
-              color="primary"
               size="small"
-              sx={{
-                minWidth: 100,
-                '&:hover': {
-                  boxShadow: theme.shadows[2]
-                }
-              }}
             >
               Filtres
             </Button>
+              </Box>
+              
+              {/* Options de tri */}
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' }, color: '#2E2E2E' }}>
+                  Trier par:
+                </Typography>
+                <Button
+                  variant={sortBy.field === 'nom' ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => handleSortChange('nom')}
+                  endIcon={sortBy.field === 'nom' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
+                  size="small"
+                  sx={{ minWidth: 'auto' }}
+                >
+                  Nom
+                </Button>
+                <Button
+                  variant={sortBy.field === 'departement' ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => handleSortChange('departement')}
+                  endIcon={sortBy.field === 'departement' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
+                  size="small"
+                  sx={{ minWidth: 'auto' }}
+                >
+                  Dép.
+                </Button>
+                <Button
+                  variant={sortBy.field === 'specialitecomplementaire' ? "contained" : "outlined"}
+                  color="primary"
+                  onClick={() => handleSortChange('specialitecomplementaire')}
+                  endIcon={sortBy.field === 'specialitecomplementaire' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
+                  size="small"
+                  sx={{ minWidth: 'auto', display: { xs: 'none', md: 'inline-flex' } }}
+                >
+                  Spécialité
+                </Button>
 
-            {isAdmin && (
+            {isAdmin && user && (
               <Button
                 variant="contained"
                 color="primary"
                 startIcon={<AddIcon />}
                 onClick={handleAddMedecin}
-                sx={{
-                  fontWeight: 500,
-                  boxShadow: theme.shadows[2],
-                  '&:hover': {
-                    boxShadow: theme.shadows[4]
-                  }
-                }}
+                    sx={{ ml: { xs: 0, sm: 1 } }}
               >
-                Nouveau Médecin
+                    Ajouter
               </Button>
             )}
+              </Box>
+            </Box>
           </Box>
         </Box>
 
@@ -510,101 +589,78 @@ const Medecins: React.FC = () => {
                       exit="exit"
                       variants={cardVariants}
                     >
-                      <Card
-                        elevation={2}
-                        sx={{
-                          height: '100%',
-                          display: 'flex',
+                      <Card 
+                        sx={{ 
+                          height: '100%', 
+                          display: 'flex', 
                           flexDirection: 'column',
-                          backgroundColor: theme.palette.background.paper,
-                          borderRadius: 2,
-                          transition: 'all 0.3s ease-in-out',
+                          transition: 'transform 0.3s, box-shadow 0.3s',
                           '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: theme.shadows[8]
+                            transform: 'translateY(-5px)',
+                            boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
                           }
                         }}
                       >
-                        <CardContent sx={{ flexGrow: 1 }}>
-                          <Box display="flex" alignItems="center" mb={2}>
-                            <Avatar 
-                              sx={{ 
+                        <CardContent sx={{ p: 3, pb: 0 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="h6" component="h2" noWrap>
+                              {medecin.nom} {medecin.prenom}
+                            </Typography>
+                            <Avatar
+                              sx={{
                                 bgcolor: getAvatarColor(medecin.id),
-                                mr: 2
+                                width: 36,
+                                height: 36,
+                                color: '#FFFFFF',
+                                fontWeight: 'bold'
                               }}
                             >
-                              {medecin.prenom[0]}{medecin.nom[0]}
+                              {medecin.nom.charAt(0).toUpperCase()}
                             </Avatar>
-                            <Typography variant="h6" component="div">
-                              Dr. {medecin.prenom} {medecin.nom}
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, mb: 0.5 }}>
+                            <LocationOn sx={{ color: '#2E2E2E', mr: 1, fontSize: '0.9rem' }} />
+                            <Typography variant="body2" color="#2E2E2E" fontWeight="medium" noWrap>
+                              Dép. {medecin.departement}
                             </Typography>
                           </Box>
-
-                          <Divider sx={{ mb: 2 }} />
-
                           {medecin.specialitecomplementaire && (
                             <Chip
                               label={medecin.specialitecomplementaire}
                               size="small"
-                              sx={{ mb: 2 }}
+                              sx={{ mt: 1, mb: 1, bgcolor: theme.palette.primary.light, color: '#2E2E2E', fontWeight: 'medium' }}
                             />
                           )}
-
-                          <Box display="flex" alignItems="center" mb={1}>
-                            <LocationOn fontSize="small" sx={{ mr: 1, color: theme.palette.secondary.main }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {medecin.adresse}
-                            </Typography>
-                          </Box>
-
-                          <Box display="flex" alignItems="center" mb={1}>
-                            <Phone fontSize="small" sx={{ mr: 1, color: theme.palette.secondary.main }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {medecin.tel}
-                            </Typography>
-                          </Box>
                         </CardContent>
-
-                        <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
-                          <IconButton
+                        <Divider />
+                        <CardActions sx={{ p: 2, pt: 1 }}>
+                          <Button
                             size="small"
+                            startIcon={<InfoIcon sx={{ color: theme.palette.text.primary }} />}
                             onClick={() => handleViewMedecin(medecin)}
-                            color="primary"
-                            sx={{
-                              '&:hover': {
-                                backgroundColor: theme.palette.primary.light + '20'
-                              }
-                            }}
+                            sx={{ color: theme.palette.text.primary, fontWeight: 'medium' }}
                           >
-                            <InfoIcon />
-                          </IconButton>
-                          
-                          {isAdmin && (
+                            Détails
+                          </Button>
+                          {isAdmin && user && (
                             <>
-                              <IconButton
+                              <Button
                                 size="small"
+                                startIcon={<EditIcon sx={{ color: theme.palette.text.primary }} />}
                                 onClick={() => handleEditMedecin(medecin)}
-                                color="primary"
-                                sx={{
-                                  '&:hover': {
-                                    backgroundColor: theme.palette.primary.light + '20'
-                                  }
-                                }}
+                                sx={{ ml: 'auto', color: theme.palette.text.primary, fontWeight: 'medium' }}
                               >
-                                <EditIcon />
-                              </IconButton>
-                              <IconButton
+                                Modifier
+                              </Button>
+                              <Button
                                 size="small"
-                                onClick={() => handleDeleteMedecin(medecin)}
                                 color="error"
-                                sx={{
-                                  '&:hover': {
-                                    backgroundColor: theme.palette.error.light + '20'
-                                  }
-                                }}
+                                startIcon={<DeleteIcon />}
+                                onClick={() => handleDeleteMedecin(medecin)}
+                                sx={{ fontWeight: 'medium' }}
                               >
-                                <DeleteIcon />
-                              </IconButton>
+                                Supprimer
+                              </Button>
                             </>
                           )}
                         </CardActions>
@@ -639,21 +695,25 @@ const Medecins: React.FC = () => {
           </AnimatePresence>
         )}
 
-        {/* Dialog d'ajout/édition */}
+        {/* Dialog d'ajout */}
         <Dialog
-          open={openAddDialog || openEditDialog}
-          onClose={() => {
-            setOpenAddDialog(false);
-            setOpenEditDialog(false);
-          }}
-          maxWidth="sm"
+          open={openAddDialog}
+          onClose={() => setOpenAddDialog(false)}
           fullWidth
+          maxWidth="md"
         >
-          <DialogTitle>
-            {openAddDialog ? 'Ajouter un médecin' : 'Modifier un médecin'}
+          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            Ajouter un médecin
+            <IconButton
+              aria-label="close"
+              onClick={() => setOpenAddDialog(false)}
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
           </DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <DialogContent dividers>
+            <Box component="form" sx={{ mt: 1 }}>
               <CustomGrid container spacing={2}>
                 <CustomGrid item xs={12} sm={6}>
                   <TextField
@@ -734,17 +794,134 @@ const Medecins: React.FC = () => {
               </CustomGrid>
             </Box>
           </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => {
-                setOpenAddDialog(false);
-                setOpenEditDialog(false);
-              }}
+          <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
+            <Button 
+              onClick={() => setOpenAddDialog(false)} 
+              startIcon={<ArrowBackIcon />}
+              color="inherit"
             >
-              Annuler
+              Retour
+            </Button>
+            <Button 
+              onClick={handleSaveMedecin} 
+              variant="contained" 
+              color="primary"
+              disabled={!formValues.nom || !formValues.prenom || !formValues.departement}
+            >
+              Enregistrer
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Dialog de modification */}
+        <Dialog
+          open={openEditDialog}
+          onClose={() => setOpenEditDialog(false)}
+          fullWidth
+          maxWidth="md"
+        >
+          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            Modifier un médecin
+            <IconButton
+              aria-label="close"
+              onClick={() => setOpenEditDialog(false)}
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Box component="form" sx={{ mt: 1 }}>
+              <CustomGrid container spacing={2}>
+                <CustomGrid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Nom"
+                    name="nom"
+                    value={formValues.nom}
+                    onChange={handleTextInputChange}
+                    required
+                  />
+                </CustomGrid>
+                <CustomGrid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Prénom"
+                    name="prenom"
+                    value={formValues.prenom}
+                    onChange={handleTextInputChange}
+                    required
+                  />
+                </CustomGrid>
+                <CustomGrid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Adresse"
+                    name="adresse"
+                    value={formValues.adresse}
+                    onChange={handleTextInputChange}
+                    required
+                  />
+                </CustomGrid>
+                <CustomGrid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Téléphone"
+                    name="tel"
+                    value={formValues.tel}
+                    onChange={handleTextInputChange}
+                    required
+                  />
+                </CustomGrid>
+                <CustomGrid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Département</InputLabel>
+                    <Select
+                      name="departement"
+                      value={formValues.departement}
+                      onChange={handleSelectChange}
+                      label="Département"
+                      required
+                    >
+                      {departements.map((dept) => (
+                        <MenuItem key={dept.id} value={dept.id}>
+                          {dept.nom}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </CustomGrid>
+                <CustomGrid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel>Spécialité complémentaire</InputLabel>
+                    <Select
+                      name="specialitecomplementaire"
+                      value={formValues.specialitecomplementaire}
+                      onChange={handleSelectChange}
+                      label="Spécialité complémentaire"
+                    >
+                      <MenuItem value="">Aucune</MenuItem>
+                      {specialites.map((spec) => (
+                        <MenuItem key={spec.id} value={spec.id}>
+                          {spec.nom}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </CustomGrid>
+              </CustomGrid>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
+            <Button 
+              onClick={() => setOpenEditDialog(false)} 
+              startIcon={<ArrowBackIcon />}
+              color="inherit"
+            >
+              Retour
             </Button>
             <Button onClick={handleSaveMedecin} variant="contained" color="primary">
-              Enregistrer
+              Mettre à jour
             </Button>
           </DialogActions>
         </Dialog>

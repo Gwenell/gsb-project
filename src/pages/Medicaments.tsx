@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
   Paper,
   Box,
@@ -16,9 +15,6 @@ import {
   CardActions,
   InputAdornment,
   FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Snackbar,
   Alert,
   useTheme,
@@ -33,9 +29,11 @@ import {
   Delete as DeleteIcon,
   Search as SearchIcon,
   FilterList as FilterIcon,
-  Medication,
   Close as CloseIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,19 +42,19 @@ import {
   getMedicamentById, 
   updateMedicament, 
   addMedicament, 
-  getAllFamilles 
+  getAllFamilles,
+  deleteMedicament
 } from '../services/api';
 import Layout from '../components/Layout';
 import CustomGrid from '../components/CustomGrid';
-
-// Crimson red for accents
-const crimsonRed = '#DC143C';
 
 // Types pour les données
 interface Medicament {
   id: string;
   nom_commercial: string;
+  nomCommercial?: string;
   id_famille: string;
+  idFamille?: string;
   composition: string;
   effets: string;
   contre_indications: string;
@@ -69,24 +67,20 @@ interface Famille {
   libelle: string;
 }
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
+// Animations des cartes
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
     opacity: 1,
-    transition: {
-      when: "beforeChildren",
-      staggerChildren: 0.1
-    }
-  }
-};
-
-const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
     y: 0,
-    opacity: 1,
-    transition: { type: 'spring', stiffness: 100 }
-  }
+    transition: {
+      delay: i * 0.05,
+      duration: 0.3,
+      type: 'spring',
+      stiffness: 100
+    }
+  }),
+  exit: { opacity: 0, y: -20, transition: { duration: 0.2 } }
 };
 
 const Medicaments: React.FC = () => {
@@ -109,6 +103,15 @@ const Medicaments: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(9);
   const [familles, setFamilles] = useState<Famille[]>([]);
 
+  // Ajout du state pour le tri
+  const [sortBy, setSortBy] = useState<{
+    field: keyof Medicament | '';
+    order: 'asc' | 'desc';
+  }>({
+    field: 'nom_commercial',
+    order: 'asc'
+  });
+
   // Nouvelles valeurs pour l'édition/création
   const [formValues, setFormValues] = useState<Partial<Medicament>>({
     nom_commercial: '',
@@ -119,19 +122,32 @@ const Medicaments: React.FC = () => {
     prix: ''
   });
 
-  const isAdmin = user?.type_utilisateur === 'admin' || user?.type_utilisateur === 'administrateur';
+  const isAdmin = user?.type_utilisateur === 'admin' || user?.type_utilisateur === 'administrateur' || user?.type_utilisateur === 'responsable';
 
   useEffect(() => {
     const fetchFamilles = async () => {
       try {
         const response = await getAllFamilles();
-        if (response.data && Array.isArray(response.data.data)) {
+        console.log("Familles data:", response);
+        
+        if (response.status === 'success') {
+          let famillesData = response.data;
+          if (Array.isArray(famillesData) && famillesData.length > 0) {
+            setFamilles(famillesData);
+          } else if (response.data && Array.isArray(response.data.data)) {
+            // Fallback pour une structure alternative
           setFamilles(response.data.data);
         } else {
+            console.warn("Format inattendu pour les familles:", response.data);
+            setFamilles([]);
+          }
+        } else {
+          console.error("Erreur lors de la récupération des familles:", response.message);
           setFamilles([]);
         }
       } catch (err) {
         console.error('Erreur lors de la récupération des familles:', err);
+        setFamilles([]);
       }
     };
 
@@ -143,24 +159,43 @@ const Medicaments: React.FC = () => {
       try {
         setLoading(true);
         const response = await getAllMedicaments('');
-        console.log("Medicaments data:", response.data);
+        console.log("Medicaments data:", response);
         
-        if (response.data && Array.isArray(response.data.data)) {
-          // Ajouter le nom de la famille
-          const medicamentsWithFamille = response.data.data.map((med: Medicament) => {
-            const famille = familles.find(f => f.id === med.id_famille);
+        if (response.status === 'success') {
+          let medicamentsData = response.data;
+          if (Array.isArray(medicamentsData) && medicamentsData.length > 0) {
+            // S'assurer que chaque médicament a les bons champs
+            const medicamentsNormalized = medicamentsData.map((med: any) => {
+              // Utiliser nomCommercial si nom_commercial n'existe pas
+              const nom = med.nom_commercial || med.nomCommercial || '';
+              const idFamille = med.id_famille || med.idFamille || '';
+              
+              // Trouver la famille correspondante
+              const famille = familles.find(f => f.id === idFamille);
+              
             return {
               ...med,
+                id: med.id || '',
+                nom_commercial: nom,
+                nomCommercial: nom,
+                id_famille: idFamille,
+                idFamille: idFamille,
               famille: famille ? famille.libelle : 'Non catégorisé'
             };
           });
 
-          setMedicaments(medicamentsWithFamille);
-          setFilteredMedicaments(medicamentsWithFamille);
+            console.log("Médicaments normalisés:", medicamentsNormalized);
+            setMedicaments(medicamentsNormalized);
+            setFilteredMedicaments(medicamentsNormalized);
         } else {
           setMedicaments([]);
           setFilteredMedicaments([]);
-          setError('Aucune donnée trouvée');
+            setError('Aucun médicament trouvé');
+          }
+        } else {
+          setMedicaments([]);
+          setFilteredMedicaments([]);
+          setError(response.message || 'Erreur lors de la récupération des données');
         }
       } catch (err) {
         console.error('Erreur lors de la récupération des médicaments:', err);
@@ -175,7 +210,7 @@ const Medicaments: React.FC = () => {
 
   useEffect(() => {
     filterMedicaments();
-  }, [searchTerm, filterFamille, medicaments]);
+  }, [searchTerm, filterFamille, medicaments, sortBy]);
 
   const filterMedicaments = () => {
     let filtered = [...medicaments];
@@ -193,6 +228,34 @@ const Medicaments: React.FC = () => {
       filtered = filtered.filter(medicament =>
         medicament.famille?.toLowerCase().includes(filterFamille.toLowerCase())
       );
+    }
+
+    // Tri des résultats
+    if (sortBy.field) {
+      filtered.sort((a, b) => {
+        let valueA = a[sortBy.field as keyof Medicament];
+        let valueB = b[sortBy.field as keyof Medicament];
+        
+        // Cas spécial pour le prix (conversion numérique)
+        if (sortBy.field === 'prix') {
+          const numA = valueA ? parseFloat(valueA as string) : 0;
+          const numB = valueB ? parseFloat(valueB as string) : 0;
+          return sortBy.order === 'asc' ? numA - numB : numB - numA;
+        }
+        // Pour les champs textuels
+        else if (typeof valueA === 'string' && typeof valueB === 'string') {
+          valueA = valueA.toLowerCase();
+          valueB = valueB.toLowerCase();
+        }
+        
+        if (valueA < valueB) {
+          return sortBy.order === 'asc' ? -1 : 1;
+        }
+        if (valueA > valueB) {
+          return sortBy.order === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
     }
 
     setFilteredMedicaments(filtered);
@@ -441,21 +504,42 @@ const Medicaments: React.FC = () => {
   };
 
   const handleConfirmDelete = async () => {
-    // In a real app, you would call an API to delete the medicament
     if (currentMedicament) {
       try {
-        // Assuming there's a delete endpoint
-        // const response = await deleteMedicament(currentMedicament.id);
+        setLoading(true);
+        const response = await deleteMedicament(currentMedicament.id);
         
-        // For now, we'll just remove it from the local state
+        if (response.status === 'success') {
+          // Refresh the list
+          const updatedResponse = await getAllMedicaments();
+          if (updatedResponse.status === 'success') {
+            // Recréer la liste avec les familles
+            const medicamentsWithFamille = updatedResponse.data.map((med: Medicament) => {
+              const famille = familles.find(f => f.id === med.id_famille);
+              return {
+                ...med,
+                famille: famille ? famille.libelle : 'Non catégorisé'
+              };
+            });
+            
+            setMedicaments(medicamentsWithFamille);
+            setFilteredMedicaments(medicamentsWithFamille);
+          } else {
+            // If refreshing fails, just remove locally
         const updatedMedicaments = medicaments.filter(m => m.id !== currentMedicament.id);
         setMedicaments(updatedMedicaments);
         setFilteredMedicaments(updatedMedicaments);
+          }
         setSnackbar({ open: true, message: 'Médicament supprimé avec succès', severity: 'success' });
+        } else {
+          setSnackbar({ open: true, message: response.message || 'Erreur lors de la suppression du médicament', severity: 'error' });
+        }
         setOpenDeleteDialog(false);
       } catch (error) {
         console.error("Erreur lors de la suppression:", error);
         setSnackbar({ open: true, message: 'Erreur lors de la suppression du médicament', severity: 'error' });
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -471,76 +555,97 @@ const Medicaments: React.FC = () => {
     return famille ? famille.libelle : 'Non catégorisé';
   };
 
+  // Ajouter cette fonction pour gérer les changements de tri
+  const handleSortChange = (field: keyof Medicament) => {
+    setSortBy(prev => ({
+      field,
+      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
   return (
     <Layout title="Médicaments">
       <Box sx={{ mb: 4 }}>
         <Box 
           sx={{ 
+            mb: 3, 
             display: 'flex', 
             justifyContent: 'space-between', 
-            alignItems: 'flex-start',
-            mb: 3,
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: { xs: 2, sm: 0 }
+            flexWrap: 'wrap', 
+            gap: { xs: 2, sm: 1 }
           }}
         >
-          <Box sx={{ flex: 1, width: { xs: '100%', sm: 'auto' } }}>
+          <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, maxWidth: { xs: '100%', sm: 500 } }}>
             <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Rechercher par nom ou composition..."
+              placeholder="Rechercher un médicament..."
+              size="small"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon />
+                    <SearchIcon sx={{ color: '#2E2E2E' }} />
                   </InputAdornment>
-                ),
+                )
               }}
-              sx={{ maxWidth: { sm: 400 } }}
+              fullWidth
             />
-          </Box>
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              gap: 2,
-              width: { xs: '100%', sm: 'auto' },
-              justifyContent: { xs: 'space-between', sm: 'flex-end' }
-            }}
-          >
             <Button
-              startIcon={<FilterIcon />}
-              onClick={() => setOpenFilter(!openFilter)}
               variant={openFilter ? "contained" : "outlined"}
-              color="primary"
+              startIcon={<FilterIcon sx={{ color: openFilter ? 'inherit' : '#2E2E2E' }} />}
+              onClick={() => setOpenFilter(!openFilter)}
               size="small"
-              sx={{
-                minWidth: 100,
-                '&:hover': {
-                  boxShadow: theme.shadows[2]
-                }
-              }}
             >
               Filtres
             </Button>
+          </Box>
+          
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Options de tri */}
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' }, color: '#2E2E2E' }}>
+                Trier par:
+              </Typography>
+              <Button
+                variant={sortBy.field === 'nom_commercial' ? "contained" : "outlined"}
+                color="primary"
+                onClick={() => handleSortChange('nom_commercial')}
+                endIcon={sortBy.field === 'nom_commercial' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
+                size="small"
+                sx={{ minWidth: 'auto' }}
+          >
+                Nom
+              </Button>
+            <Button
+                variant={sortBy.field === 'id_famille' ? "contained" : "outlined"}
+              color="primary"
+                onClick={() => handleSortChange('id_famille')}
+                endIcon={sortBy.field === 'id_famille' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
+              size="small"
+                sx={{ minWidth: 'auto' }}
+            >
+                Famille
+            </Button>
+              <Button
+                variant={sortBy.field === 'prix' ? "contained" : "outlined"}
+                color="primary"
+                onClick={() => handleSortChange('prix')}
+                endIcon={sortBy.field === 'prix' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
+                size="small"
+                sx={{ minWidth: 'auto', display: { xs: 'none', md: 'inline-flex' } }}
+              >
+                Prix
+              </Button>
+            </Box>
 
-            {isAdmin && (
+            {isAdmin && user && (
               <Button
                 variant="contained"
                 color="primary"
                 startIcon={<AddIcon />}
                 onClick={handleAddMedicament}
-                sx={{
-                  fontWeight: 500,
-                  boxShadow: theme.shadows[2],
-                  '&:hover': {
-                    boxShadow: theme.shadows[4]
-                  }
-                }}
               >
-                Nouveau Médicament
+                Ajouter
               </Button>
             )}
           </Box>
@@ -615,76 +720,73 @@ const Medicaments: React.FC = () => {
                       initial="hidden"
                       animate="visible"
                       exit="exit"
-                      variants={itemVariants}
+                      variants={cardVariants}
                     >
                       <Card
-                        elevation={2}
                         sx={{
                           height: '100%',
                           display: 'flex',
                           flexDirection: 'column',
-                          borderRadius: 2,
-                          transition: 'all 0.3s ease-in-out',
+                          transition: 'transform 0.3s, box-shadow 0.3s',
                           '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: theme.shadows[8]
+                            transform: 'translateY(-5px)',
+                            boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
                           }
                         }}
                       >
-                        <CardContent sx={{ flexGrow: 1 }}>
-                          <Box display="flex" alignItems="center" mb={2}>
-                            <Chip 
-                              label={medicament.famille}
-                              size="small" 
-                              color="primary"
-                              sx={{ mr: 1 }}
-                            />
-                            <Typography variant="h6" component="div">
-                              {medicament.nom_commercial}
+                        <CardContent sx={{ p: 3, pb: 0 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="h6" component="h2" noWrap>
+                              {medicament.nom_commercial || medicament.nomCommercial || 'Sans nom'}
                             </Typography>
+                            <Chip 
+                              label={medicament.famille || 'Non catégorisé'} 
+                              size="small" 
+                              sx={{ bgcolor: theme.palette.primary.light, color: '#2E2E2E', fontWeight: 'medium' }} 
+                            />
                           </Box>
                           
-                          <Divider sx={{ mb: 2 }} />
-                          
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            <strong>Composition:</strong> {medicament.composition.substring(0, 100)}
-                            {medicament.composition.length > 100 ? '...' : ''}
-                          </Typography>
-                          
                           {medicament.prix && (
-                            <Typography variant="body2" color="error" sx={{ fontWeight: 'bold', mt: 1 }}>
+                            <Box sx={{ mt: 1, mb: 0.5 }}>
+                              <Typography variant="body2" color="#2E2E2E" fontWeight="medium">
                               Prix: {medicament.prix} €
                             </Typography>
+                            </Box>
                           )}
                         </CardContent>
-                        
-                        <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }}>
-                          <IconButton
+                        <Divider />
+                        <CardActions sx={{ pt: 1, justifyContent: 'space-between', p: 2 }}>
+                          <Button
                             size="small"
+                            startIcon={<InfoIcon sx={{ color: theme.palette.text.primary }} />}
                             onClick={() => handleViewMedicament(medicament)}
-                            color="primary"
+                            sx={{ color: theme.palette.text.primary, fontWeight: 'medium' }}
                           >
-                            <InfoIcon />
-                          </IconButton>
-                          
-                          {isAdmin && (
+                            Détails
+                          </Button>
+                          <Box>
+                            {isAdmin && user && (
                             <>
-                              <IconButton
+                                <Button
                                 size="small"
+                                  startIcon={<EditIcon sx={{ color: theme.palette.text.primary }} />}
                                 onClick={() => handleEditMedicament(medicament)}
-                                color="primary"
+                                  sx={{ color: theme.palette.text.primary, fontWeight: 'medium' }}
                               >
-                                <EditIcon />
-                              </IconButton>
-                              <IconButton
+                                  Modifier
+                                </Button>
+                                <Button
                                 size="small"
-                                onClick={() => handleDeleteMedicament(medicament)}
                                 color="error"
+                                  startIcon={<DeleteIcon />}
+                                  onClick={() => handleDeleteMedicament(medicament)}
+                                  sx={{ fontWeight: 'medium' }}
                               >
-                                <DeleteIcon />
-                              </IconButton>
+                                  Supprimer
+                                </Button>
                             </>
                           )}
+                          </Box>
                         </CardActions>
                       </Card>
                     </motion.div>
@@ -718,25 +820,26 @@ const Medicaments: React.FC = () => {
         )}
 
         {/* Dialogs */}
-        {/* Dialog d'ajout/édition */}
+        {/* Dialog d'ajout */}
         <Dialog 
-          open={openAddDialog || openEditDialog} 
-          onClose={() => openAddDialog ? setOpenAddDialog(false) : setOpenEditDialog(false)} 
+          open={openAddDialog}
+          onClose={() => setOpenAddDialog(false)}
           fullWidth 
           maxWidth="md"
         >
-          <DialogTitle>
-            {openAddDialog ? 'Nouveau Médicament' : 'Modifier le Médicament'}
+          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            Ajouter un médicament
             <IconButton
               aria-label="close"
-              onClick={() => openAddDialog ? setOpenAddDialog(false) : setOpenEditDialog(false)}
-              sx={{ position: 'absolute', right: 8, top: 8 }}
+              onClick={() => setOpenAddDialog(false)}
+              size="small"
             >
               <CloseIcon />
             </IconButton>
           </DialogTitle>
           <DialogContent dividers>
-            <CustomGrid container spacing={3}>
+            <Box component="form" sx={{ mt: 1 }}>
+              <CustomGrid container spacing={2}>
               <CustomGrid item xs={12} sm={6}>
                 <TextField
                   label="Nom commercial"
@@ -815,17 +918,137 @@ const Medicaments: React.FC = () => {
                 />
               </CustomGrid>
             </CustomGrid>
+            </Box>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => openAddDialog ? setOpenAddDialog(false) : setOpenEditDialog(false)}>
-              Annuler
+          <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
+            <Button 
+              onClick={() => setOpenAddDialog(false)} 
+              startIcon={<ArrowBackIcon />}
+              color="inherit"
+            >
+              Retour
             </Button>
             <Button
               onClick={handleSaveMedicament}
               variant="contained"
-              color="secondary"
+              color="primary"
+              disabled={!formValues.nom_commercial || !formValues.id_famille}
             >
               Enregistrer
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Dialog de modification */}
+        <Dialog
+          open={openEditDialog}
+          onClose={() => setOpenEditDialog(false)}
+          fullWidth
+          maxWidth="md"
+        >
+          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            Modifier un médicament
+            <IconButton
+              aria-label="close"
+              onClick={() => setOpenEditDialog(false)}
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Box component="form" sx={{ mt: 1 }}>
+              <CustomGrid container spacing={2}>
+                <CustomGrid item xs={12} sm={6}>
+                  <TextField
+                    label="Nom commercial"
+                    name="nom_commercial"
+                    fullWidth
+                    value={formValues.nom_commercial}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </CustomGrid>
+                <CustomGrid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <TextField
+                      select
+                      label="Famille"
+                      name="id_famille"
+                      value={formValues.id_famille}
+                      onChange={handleSelectChange}
+                      SelectProps={{
+                        native: true,
+                      }}
+                    >
+                      <option value="">Sélectionner une famille</option>
+                      {familles.map((famille) => (
+                        <option key={famille.id} value={famille.id}>
+                          {famille.libelle}
+                        </option>
+                      ))}
+                    </TextField>
+                  </FormControl>
+                </CustomGrid>
+                <CustomGrid item xs={12}>
+                  <TextField
+                    label="Composition"
+                    name="composition"
+                    fullWidth
+                    multiline
+                    rows={3}
+                    value={formValues.composition}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </CustomGrid>
+                <CustomGrid item xs={12}>
+                  <TextField
+                    label="Effets"
+                    name="effets"
+                    fullWidth
+                    multiline
+                    rows={3}
+                    value={formValues.effets}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </CustomGrid>
+                <CustomGrid item xs={12}>
+                  <TextField
+                    label="Contre-indications"
+                    name="contre_indications"
+                    fullWidth
+                    multiline
+                    rows={3}
+                    value={formValues.contre_indications}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </CustomGrid>
+                <CustomGrid item xs={12} sm={6}>
+                  <TextField
+                    label="Prix indicatif (€)"
+                    name="prix"
+                    type="number"
+                    fullWidth
+                    value={formValues.prix}
+                    onChange={handleInputChange}
+                  />
+                </CustomGrid>
+              </CustomGrid>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
+            <Button 
+              onClick={() => setOpenEditDialog(false)} 
+              startIcon={<ArrowBackIcon />}
+              color="inherit"
+            >
+              Retour
+            </Button>
+            <Button onClick={handleSaveMedicament} variant="contained" color="primary">
+              Mettre à jour
             </Button>
           </DialogActions>
         </Dialog>

@@ -32,6 +32,7 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import PersonIcon from '@mui/icons-material/Person';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import styled from '@emotion/styled';
 
 // Crimson red for accents
 const crimsonRed = '#DC143C';
@@ -77,39 +78,81 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
   };
 
-  const menuItems = [
-    {
-      text: 'Tableau de bord',
-      icon: <DashboardIcon />,
-      path: '/dashboard',
-    },
-    {
-      text: 'Rapports',
-      icon: <AssignmentIcon />,
-      path: '/rapports',
-      admin: false,
-    },
-    {
-      text: 'Médecins',
-      icon: <LocalHospitalIcon />,
-      path: '/medecins',
-    },
-    {
-      text: 'Médicaments',
-      icon: <MedicationIcon />,
-      path: '/medicaments',
-    },
-  ];
+  // Menu items selon les modules définis dans la documentation
+  const getMenuItems = () => {
+    const baseItems = [
+      {
+        text: 'Tableau de bord',
+        icon: <DashboardIcon />,
+        path: '/dashboard',
+      },
+      {
+        text: 'Médecins',
+        icon: <LocalHospitalIcon />,
+        path: '/medecins',
+      },
+      {
+        text: 'Médicaments',
+        icon: <MedicationIcon />,
+        path: '/medicaments',
+      }
+    ];
 
-  // Add users menu item for admin
-  if (isAdmin) {
-    menuItems.push({
-      text: 'Utilisateurs',
-      icon: <PeopleIcon />,
-      path: '/users',
-      admin: true,
-    });
-  }
+    // Si utilisateur non connecté, retourner seulement les pages publiques
+    if (!user) {
+      return baseItems;
+    }
+
+    // Module Visiteur - saisie des comptes-rendus
+    if (user?.type_utilisateur === 'visiteur') {
+      baseItems.push(
+        {
+          text: 'Nouveau Compte-Rendu',
+          icon: <AssignmentIcon />,
+          path: '/compte-rendu',
+        },
+        {
+          text: 'Mes Rapports',
+          icon: <AssignmentIcon />,
+          path: '/rapports',
+        }
+      );
+    }
+
+    // Module Délégué/Responsable - vision activité + saisie CR
+    if (user?.type_utilisateur === 'delegue' || user?.type_utilisateur === 'responsable') {
+      baseItems.push(
+        {
+          text: 'Nouveau Compte-Rendu',
+          icon: <AssignmentIcon />,
+          path: '/compte-rendu',
+        },
+        {
+          text: 'Rapports Équipe',
+          icon: <AssignmentIcon />,
+          path: '/rapports',
+        },
+        {
+          text: 'Validation Rapports',
+          icon: <AssignmentIcon />,
+          path: '/validation-rapports',
+        }
+      );
+    }
+
+    // Gestion des utilisateurs pour les administrateurs
+    if (isAdmin || user?.type_utilisateur === 'responsable') {
+      baseItems.push({
+        text: 'Utilisateurs',
+        icon: <PeopleIcon />,
+        path: '/users',
+      });
+    }
+
+    return baseItems;
+  };
+
+  const menuItems = getMenuItems();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -150,47 +193,62 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           
           <Box sx={{ display: { xs: 'none', md: 'flex' }, flexGrow: 1 }}>
             {menuItems.map((item) => (
-              (!item.admin || isAdmin) && (
-                <Button
-                  key={item.text}
-                  onClick={() => handleNavigate(item.path)}
-                  sx={{
-                    mx: 1,
-                    color: theme.palette.primary.contrastText,
-                    fontWeight: location.pathname.startsWith(item.path) ? 'bold' : 'normal',
-                    borderBottom: location.pathname.startsWith(item.path) 
-                      ? `2px solid ${crimsonRed}` 
-                      : '2px solid transparent',
-                    borderRadius: 0,
-                    '&:hover': {
-                      bgcolor: 'transparent',
-                      borderBottom: `2px solid ${crimsonRed}`,
-                    }
-                  }}
-                  startIcon={item.icon}
-                >
-                  {item.text}
-                </Button>
-              )
+              <Button
+                key={item.text}
+                onClick={() => handleNavigate(item.path)}
+                sx={{
+                  mx: 1,
+                  color: theme.palette.primary.contrastText,
+                  fontWeight: location.pathname.startsWith(item.path) ? 'bold' : 'normal',
+                  borderBottom: location.pathname.startsWith(item.path) 
+                    ? `2px solid ${crimsonRed}` 
+                    : '2px solid transparent',
+                  borderRadius: 0,
+                  '&:hover': {
+                    bgcolor: 'transparent',
+                    borderBottom: `2px solid ${crimsonRed}`,
+                  }
+                }}
+                startIcon={item.icon}
+              >
+                {item.text}
+              </Button>
             ))}
           </Box>
           
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="body1" sx={{ mr: 2, display: { xs: 'none', md: 'block' } }}>
-              {user ? `${user.prenom} ${user.nom}` : ''}
-            </Typography>
-            <IconButton
-              size="large"
-              edge="end"
-              aria-label="compte de l'utilisateur actuel"
-              aria-haspopup="true"
-              onClick={handleProfileMenuOpen}
-              color="inherit"
-            >
-              <Avatar sx={{ width: 32, height: 32, bgcolor: theme.palette.secondary.main }}>
-                {user ? getInitials(user.nom, user.prenom) : '?'}
-              </Avatar>
-            </IconButton>
+            {user ? (
+              <>
+                <Typography variant="body1" sx={{ mr: 2, display: { xs: 'none', md: 'block' } }}>
+                  {user.prenom} {user.nom}
+                </Typography>
+                <IconButton
+                  size="large"
+                  edge="end"
+                  aria-label="compte de l'utilisateur actuel"
+                  aria-haspopup="true"
+                  onClick={handleProfileMenuOpen}
+                  color="inherit"
+                >
+                  <Avatar sx={{ width: 32, height: 32, bgcolor: theme.palette.secondary.main }}>
+                    {user ? getInitials(user.nom, user.prenom) : '?'}
+                  </Avatar>
+                </IconButton>
+              </>
+            ) : (
+              <Button 
+                color="inherit" 
+                onClick={() => navigate('/login')}
+                startIcon={<ExitToAppIcon />}
+                sx={{ 
+                  border: '1px solid rgba(255,255,255,0.5)',
+                  borderRadius: 2,
+                  px: 2
+                }}
+              >
+                Connexion
+              </Button>
+            )}
             <Menu
               anchorEl={anchorEl}
               open={Boolean(anchorEl)}
@@ -202,14 +260,14 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 handleProfileMenuClose();
               }}>
                 <ListItemIcon>
-                  <PersonIcon fontSize="small" />
+                  <PersonIcon fontSize="small" sx={{ color: '#2E2E2E' }} />
                 </ListItemIcon>
                 <ListItemText>Mon profil</ListItemText>
               </MenuItem>
               <Divider />
               <MenuItem onClick={handleLogout}>
                 <ListItemIcon>
-                  <ExitToAppIcon fontSize="small" />
+                  <ExitToAppIcon fontSize="small" sx={{ color: '#2E2E2E' }} />
                 </ListItemIcon>
                 <ListItemText>Déconnexion</ListItemText>
               </MenuItem>
@@ -230,8 +288,8 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
             display: { xs: 'block', sm: 'none' },
             '& .MuiDrawer-paper': { 
               width: 240, 
-              bgcolor: theme.palette.primary.main,
-              color: theme.palette.primary.contrastText,
+              bgcolor: 'white',
+              color: '#2E2E2E',
             },
           }}
         >
@@ -240,13 +298,13 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
               <CircularProgress color="inherit" />
             </Box>
           }>
-            <Box sx={{ bgcolor: theme.palette.primary.main, height: '100%' }}>
+            <Box sx={{ bgcolor: 'white', height: '100%' }}>
               <Toolbar>
                 <Typography 
                   variant="h6" 
                   component="div" 
                   sx={{ 
-                    color: theme.palette.primary.contrastText,
+                    color: theme.palette.primary.main,
                     fontWeight: 'bold' 
                   }}
                 >
@@ -256,32 +314,55 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
               <Divider sx={{ bgcolor: 'rgba(0,0,0,0.1)' }} />
               <List>
                 {menuItems.map((item) => (
-                  (!item.admin || isAdmin) && (
-                    <ListItem key={item.text} disablePadding>
-                      <ListItemButton
-                        onClick={() => navigate(item.path)}
-                        selected={location.pathname === item.path}
-                        sx={{
-                          color: theme.palette.primary.contrastText,
-                          '&.Mui-selected': {
-                            bgcolor: 'rgba(220,20,60,0.15)',
-                            '&:hover': {
-                              bgcolor: 'rgba(220,20,60,0.25)',
-                            },
-                          },
+                  <ListItem key={item.text} disablePadding>
+                    <ListItemButton
+                      onClick={() => navigate(item.path)}
+                      selected={location.pathname === item.path}
+                      sx={{
+                        color: location.pathname === item.path ? theme.palette.primary.contrastText : '#2E2E2E',
+                        '&.Mui-selected': {
+                          bgcolor: 'rgba(220,20,60,0.15)',
                           '&:hover': {
-                            bgcolor: 'rgba(220,20,60,0.1)',
+                            bgcolor: 'rgba(220,20,60,0.25)',
                           },
-                        }}
-                      >
-                        <ListItemIcon sx={{ color: theme.palette.primary.contrastText, minWidth: 40 }}>
-                          {item.icon}
-                        </ListItemIcon>
-                        <ListItemText primary={item.text} />
-                      </ListItemButton>
-                    </ListItem>
-                  )
+                        },
+                        '&:hover': {
+                          bgcolor: 'rgba(220,20,60,0.1)',
+                        },
+                        fontWeight: 'medium'
+                      }}
+                    >
+                      <ListItemIcon sx={{ 
+                        color: location.pathname === item.path ? theme.palette.primary.contrastText : '#2E2E2E', 
+                        minWidth: 40 
+                      }}>
+                        {item.icon}
+                      </ListItemIcon>
+                      <ListItemText primary={item.text} />
+                    </ListItemButton>
+                  </ListItem>
                 ))}
+                
+                {!user && (
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      onClick={() => navigate('/login')}
+                      sx={{
+                        mt: 2,
+                        color: theme.palette.primary.main,
+                        fontWeight: 'bold',
+                        '&:hover': {
+                          bgcolor: 'rgba(220,20,60,0.1)',
+                        }
+                      }}
+                    >
+                      <ListItemIcon sx={{ color: theme.palette.primary.main, minWidth: 40 }}>
+                        <ExitToAppIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="Connexion" />
+                    </ListItemButton>
+                  </ListItem>
+                )}
               </List>
             </Box>
           </Suspense>

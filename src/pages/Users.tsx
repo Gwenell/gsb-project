@@ -132,37 +132,65 @@ const Users: React.FC = () => {
       console.log("Récupération des utilisateurs...");
       
       const response = await getAllUsers();
-      console.log("Réponse de l'API pour les utilisateurs:", response.data);
+      console.log("Réponse de l'API pour les utilisateurs:", response);
       
-      if (!response.data) {
-        console.error("Pas de données reçues de l'API");
-        setError("Aucune donnée reçue du serveur");
+      if (response.status === 'error') {
+        setError(response.message || "Erreur lors de la récupération des utilisateurs");
         setUsers([]);
         setFilteredUsers([]);
         return;
       }
       
-      if (response.data && Array.isArray(response.data.data)) {
-        // Validate each user object
-        const validatedUsers = response.data.data.filter((user: any) => {
-          if (!user.id || !user.nom) {
-            console.warn("Utilisateur invalide trouvé dans les données:", user);
-            return false;
-          }
-          return true;
-        });
+      let userData = [];
+      
+      if (Array.isArray(response.data)) {
+        console.log("Format tableau direct");
+        userData = response.data;
+      } else if (response.data && Array.isArray(response.data.data)) {
+        console.log("Format avec data.data");
+        userData = response.data.data;
+      } else if (response.data && response.data.users && Array.isArray(response.data.users)) {
+        console.log("Format avec data.users");
+        userData = response.data.users;
+      } else if (response.data) {
+        console.log("Tentative d'extraction manuelle");
+        // Tenter d'extraire n'importe quel tableau dans la réponse
+        const possibleArrays = Object.values(response.data).filter(val => Array.isArray(val));
+        if (possibleArrays.length > 0) {
+          userData = possibleArrays[0] as any[];
+        }
+      }
+      
+      if (userData.length === 0) {
+        console.warn("Aucun utilisateur trouvé dans les données:", response.data);
+        setError('Aucun utilisateur trouvé');
+      } else {
+        console.log(`${userData.length} utilisateurs trouvés`);
+        // Validation et nettoyage des données
+        const validatedUsers = userData
+          .filter((user: any) => user && typeof user === 'object' && user.id)
+          .map((user: any) => ({
+            id: user.id,
+            nom: user.nom || '',
+            prenom: user.prenom || '',
+            email: user.email || '',
+            adresse: user.adresse || '',
+            cp: user.cp || '',
+            ville: user.ville || '',
+            date_embauche: user.date_embauche || '',
+            type_utilisateur: user.type_utilisateur || 'visiteur',
+            login: user.login || ''
+          }));
         
         setUsers(validatedUsers);
         setFilteredUsers(validatedUsers);
-      } else {
-        console.warn("Format de données inattendu:", response.data);
-        setUsers([]);
-        setFilteredUsers([]);
-        setError('Aucun utilisateur trouvé ou format de données incorrect');
+        setError('');
       }
     } catch (error) {
       console.error('Erreur lors de la récupération des utilisateurs:', error);
       setError('Erreur lors du chargement des utilisateurs');
+      setUsers([]);
+      setFilteredUsers([]);
     } finally {
       setLoading(false);
     }
