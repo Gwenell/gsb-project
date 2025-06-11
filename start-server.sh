@@ -3,6 +3,7 @@
 # Set environment variables
 export NODE_ENV=production
 export PORT=8097
+export WDS_SOCKET_PORT=0  # Disable WebSocket connections for hot reloading
 
 # Navigate to project directory
 cd /var/www/gsb-project
@@ -11,4 +12,4 @@ cd /var/www/gsb-project
 # npm run start
 
 # For production (using serve package)
-/usr/bin/npx serve -s build -l 8097 
+serve -s build -l $PORT 

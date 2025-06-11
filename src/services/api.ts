@@ -21,6 +21,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // For development debugging - log requests
+    console.log(`API Request to: ${config.url}`, config);
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -30,13 +34,29 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Log detailed error information
+    console.error('API Error Details:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      headers: error.response?.headers,
+      message: error.message
+    });
+    
     // Handle 401 Unauthorized responses
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
       // Do not redirect to login for public pages
-      // This allows pages like Dashboard, Medecins, and Medicaments to load data even if not authenticated
     }
+    
+    // Handle CORS errors specially
+    if (error.message === 'Network Error') {
+      console.error('Possible CORS issue detected. Please check API CORS configuration.');
+    }
+    
     return Promise.reject(error);
   }
 );
