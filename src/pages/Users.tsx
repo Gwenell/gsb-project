@@ -46,26 +46,24 @@ interface User {
   id: string;
   nom: string;
   prenom: string;
-  email: string;
+  username: string;
   adresse: string;
   cp: string;
   ville: string;
-  date_embauche: string;
+  dateEmbauche: string;
   type_utilisateur: string;
-  login: string;
 }
 
 // Initial form state
 const initialFormState = {
   nom: '',
   prenom: '',
-  email: '',
+  username: '',
   adresse: '',
   cp: '',
   ville: '',
-  date_embauche: new Date().toISOString().slice(0, 10),
+  dateEmbauche: new Date().toISOString().slice(0, 10),
   type_utilisateur: 'visiteur',
-  login: '',
   password: '',
   confirmPassword: ''
 };
@@ -117,8 +115,7 @@ const Users: React.FC = () => {
       const filtered = users.filter(user => 
         user.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.prenom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.login.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.ville.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredUsers(filtered);
@@ -173,13 +170,12 @@ const Users: React.FC = () => {
             id: user.id,
             nom: user.nom || '',
             prenom: user.prenom || '',
-            email: user.email || '',
+            username: user.username || '',
             adresse: user.adresse || '',
             cp: user.cp || '',
             ville: user.ville || '',
-            date_embauche: user.date_embauche || '',
+            dateEmbauche: user.dateEmbauche || '',
             type_utilisateur: user.type_utilisateur || 'visiteur',
-            login: user.login || ''
           }));
         
         setUsers(validatedUsers);
@@ -218,13 +214,12 @@ const Users: React.FC = () => {
       ...initialFormState,
       nom: user.nom,
       prenom: user.prenom,
-      email: user.email,
+      username: user.username,
       adresse: user.adresse || '',
       cp: user.cp || '',
       ville: user.ville || '',
-      date_embauche: user.date_embauche || new Date().toISOString().slice(0, 10),
+      dateEmbauche: user.dateEmbauche || new Date().toISOString().slice(0, 10),
       type_utilisateur: user.type_utilisateur,
-      login: user.login
     });
     setOpenEditDialog(true);
   };
@@ -244,7 +239,7 @@ const Users: React.FC = () => {
   // Save user (add or edit)
   const handleSaveUser = async () => {
     // Validation
-    if (!formValues.nom || !formValues.prenom || !formValues.email || !formValues.login) {
+    if (!formValues.nom || !formValues.prenom || !formValues.username) {
       setSnackbar({
         open: true,
         message: 'Veuillez remplir tous les champs obligatoires',
@@ -269,13 +264,12 @@ const Users: React.FC = () => {
         const response = await addUser({
           nom: formValues.nom,
           prenom: formValues.prenom,
-          email: formValues.email,
+          username: formValues.username,
           adresse: formValues.adresse,
           cp: formValues.cp,
           ville: formValues.ville,
-          date_embauche: formValues.date_embauche,
+          dateEmbauche: formValues.dateEmbauche,
           type_utilisateur: formValues.type_utilisateur,
-          login: formValues.login,
           password: formValues.password
         });
         
@@ -294,13 +288,12 @@ const Users: React.FC = () => {
         const userData = {
           nom: formValues.nom,
           prenom: formValues.prenom,
-          email: formValues.email,
+          username: formValues.username,
           adresse: formValues.adresse,
           cp: formValues.cp,
           ville: formValues.ville,
-          date_embauche: formValues.date_embauche,
+          dateEmbauche: formValues.dateEmbauche,
           type_utilisateur: formValues.type_utilisateur,
-          login: formValues.login
         };
         
         // Add password only if it's provided
@@ -369,8 +362,17 @@ const Users: React.FC = () => {
   // Format date for display
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR');
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Date invalide';
+      return new Intl.DateTimeFormat('fr-FR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }).format(date);
+    } catch (error) {
+      return 'Date invalide';
+    }
   };
   
   // Get user role label
@@ -469,12 +471,13 @@ const Users: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Nom</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Identifiant</TableCell>
-                  <TableCell>Rôle</TableCell>
-                  <TableCell>Date d'embauche</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Nom</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Prénom</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Nom d'utilisateur</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Ville</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Rôle</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Date d'embauche</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -487,21 +490,22 @@ const Users: React.FC = () => {
                 ) : (
                   filteredUsers.map((user) => (
                     <TableRow key={user.id}>
-                      <TableCell>{user.prenom} {user.nom}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.login}</TableCell>
+                      <TableCell>{user.nom}</TableCell>
+                      <TableCell>{user.prenom}</TableCell>
+                      <TableCell>{user.username}</TableCell>
+                      <TableCell>{user.ville}</TableCell>
                       <TableCell>
                         <Chip
-                          icon={user.type_utilisateur === 'admin' || user.type_utilisateur === 'administrateur' ? <AdminIcon /> : <PersonIcon />}
                           label={getUserRoleLabel(user.type_utilisateur)}
                           color={getUserRoleColor(user.type_utilisateur)}
                           size="small"
+                          icon={user.type_utilisateur.includes('admin') ? <AdminIcon /> : <PersonIcon />}
                         />
                       </TableCell>
-                      <TableCell>{formatDate(user.date_embauche)}</TableCell>
-                      <TableCell>
+                      <TableCell>{formatDate(user.dateEmbauche)}</TableCell>
+                      <TableCell sx={{ display: 'flex', justifyContent: 'center' }}>
                         <Tooltip title="Voir les détails">
-                          <IconButton size="small" onClick={() => handleViewUser(user)}>
+                          <IconButton onClick={() => handleViewUser(user)} color="info">
                             <VisibilityIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -552,18 +556,9 @@ const Users: React.FC = () => {
                 required
               />
               <TextField
-                label="Email"
-                name="email"
-                type="email"
-                value={formValues.email}
-                onChange={handleInputChange}
-                fullWidth
-                required
-              />
-              <TextField
-                label="Identifiant"
-                name="login"
-                value={formValues.login}
+                label="Nom d'utilisateur"
+                name="username"
+                value={formValues.username}
                 onChange={handleInputChange}
                 fullWidth
                 required
@@ -620,9 +615,9 @@ const Users: React.FC = () => {
               </FormControl>
               <TextField
                 label="Date d'embauche"
-                name="date_embauche"
+                name="dateEmbauche"
                 type="date"
-                value={formValues.date_embauche}
+                value={formValues.dateEmbauche}
                 onChange={handleInputChange}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
@@ -686,18 +681,9 @@ const Users: React.FC = () => {
                 required
               />
               <TextField
-                label="Email"
-                name="email"
-                type="email"
-                value={formValues.email}
-                onChange={handleInputChange}
-                fullWidth
-                required
-              />
-              <TextField
-                label="Identifiant"
-                name="login"
-                value={formValues.login}
+                label="Nom d'utilisateur"
+                name="username"
+                value={formValues.username}
                 onChange={handleInputChange}
                 fullWidth
                 required
@@ -752,9 +738,9 @@ const Users: React.FC = () => {
               </FormControl>
               <TextField
                 label="Date d'embauche"
-                name="date_embauche"
+                name="dateEmbauche"
                 type="date"
-                value={formValues.date_embauche}
+                value={formValues.dateEmbauche}
                 onChange={handleInputChange}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
@@ -803,13 +789,16 @@ const Users: React.FC = () => {
             {currentUser && (
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 2 }}>
                 <Typography variant="subtitle2">Nom complet:</Typography>
-                <Typography>{currentUser.prenom} {currentUser.nom}</Typography>
+                <Typography>{currentUser.nom} {currentUser.prenom}</Typography>
                 
-                <Typography variant="subtitle2">Email:</Typography>
-                <Typography>{currentUser.email}</Typography>
+                <Typography variant="subtitle2">Nom d'utilisateur:</Typography>
+                <Typography>{currentUser.username}</Typography>
                 
-                <Typography variant="subtitle2">Identifiant:</Typography>
-                <Typography>{currentUser.login}</Typography>
+                <Typography variant="subtitle2">Adresse:</Typography>
+                <Typography>
+                  {currentUser.adresse}<br />
+                  {currentUser.cp} {currentUser.ville}
+                </Typography>
                 
                 <Typography variant="subtitle2">Rôle:</Typography>
                 <Chip
@@ -819,17 +808,7 @@ const Users: React.FC = () => {
                 />
                 
                 <Typography variant="subtitle2">Date d'embauche:</Typography>
-                <Typography>{formatDate(currentUser.date_embauche)}</Typography>
-                
-                {currentUser.adresse && (
-                  <>
-                    <Typography variant="subtitle2">Adresse:</Typography>
-                    <Typography>
-                      {currentUser.adresse}<br />
-                      {currentUser.cp} {currentUser.ville}
-                    </Typography>
-                  </>
-                )}
+                <Typography>{formatDate(currentUser.dateEmbauche)}</Typography>
               </Box>
             )}
           </DialogContent>
@@ -861,7 +840,7 @@ const Users: React.FC = () => {
             </Typography>
             {currentUser && (
               <Typography variant="subtitle2" sx={{ mt: 2, fontWeight: 'bold' }}>
-                {currentUser.prenom} {currentUser.nom} ({currentUser.email})
+                {currentUser.nom} {currentUser.prenom} ({currentUser.username})
               </Typography>
             )}
           </DialogContent>

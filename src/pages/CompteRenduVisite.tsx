@@ -32,6 +32,7 @@ import AddIcon from '@mui/icons-material/Add';
 import MedicationIcon from '@mui/icons-material/Medication';
 import { useAuth } from '../contexts/AuthContext';
 import { getAllMedecins, addRapport, getAllMedicaments, addMedicamentOffert } from '../services/api';
+import Layout from '../components/Layout';
 
 // Motifs de visite prédéfinis selon la documentation
 const MOTIFS_VISITE = [
@@ -208,277 +209,222 @@ const CompteRenduVisite: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Paper elevation={3} sx={{ p: 4 }}>
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h4" component="h1" gutterBottom color="primary" fontWeight="bold">
-              Nouveau Compte-Rendu de Visite
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Saisissez les informations de votre visite médicale
-            </Typography>
-          </Box>
-
-          {message && (
-            <Alert severity={message.type} sx={{ mb: 3 }}>
-              {message.text}
-            </Alert>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
-              {/* Informations générales */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>
-                  Informations générales
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  required
-                  type="date"
-                  label="Date de visite"
-                  value={formData.date.toISOString().split('T')[0]}
-                  onChange={(e) => {
-                    const newDate = new Date(e.target.value);
-                    setFormData(prev => ({ ...prev, date: newDate }));
-                  }}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>Motif de la visite</InputLabel>
-                  <Select
-                    value={formData.motif}
-                    onChange={(e) => setFormData(prev => ({ ...prev, motif: e.target.value }))}
-                    label="Motif de la visite"
-                  >
-                    {MOTIFS_VISITE.map((motif) => (
-                      <MenuItem key={motif} value={motif}>
-                        {motif}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {formData.motif === 'Autre' && (
-                <Grid item xs={12}>
+    <Layout title="Nouveau Compte-Rendu de Visite">
+      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+        {message && (
+          <Alert severity={message.type} sx={{ mb: 3 }}>
+            {message.text}
+          </Alert>
+        )}
+        
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={3}>
+            {/* Sélection du médecin */}
+            <Grid item xs={12} md={6}>
+              <Autocomplete
+                options={medecins}
+                getOptionLabel={(option) => `${option.prenom} ${option.nom}`}
+                value={selectedMedecin}
+                onChange={(_, newValue) => {
+                  setSelectedMedecin(newValue);
+                }}
+                renderInput={(params) => (
                   <TextField
+                    {...params}
+                    label="Sélectionner un médecin"
+                    variant="outlined"
                     fullWidth
-                    label="Précisez le motif"
-                    value={formData.motifAutre}
-                    onChange={(e) => setFormData(prev => ({ ...prev, motifAutre: e.target.value }))}
                     required
                   />
-                </Grid>
-              )}
-
-              {/* Médecin */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>
-                  Médecin visité
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Autocomplete
-                  options={medecins}
-                  getOptionLabel={(option) => `Dr ${option.prenom} ${option.nom} - ${option.adresse}`}
-                  value={selectedMedecin}
-                  onChange={(_, newValue) => setSelectedMedecin(newValue)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Rechercher un médecin"
-                      placeholder="Tapez le nom, prénom ou adresse..."
-                      required
-                    />
-                  )}
-                  renderOption={(props, option) => (
-                    <Box component="li" {...props}>
-                      <Box>
-                        <Typography variant="body1">
-                          Dr {option.prenom} {option.nom}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {option.adresse} - {option.specialitecomplementaire || 'Médecine générale'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Médecin effectivement vu (si remplaçant)"
-                  value={formData.medecinVisite}
-                  onChange={(e) => setFormData(prev => ({ ...prev, medecinVisite: e.target.value }))}
-                  helperText="Laissez vide si vous avez vu le médecin titulaire"
-                />
-              </Grid>
-
-              {/* Bilan */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>
-                  Bilan de la visite
-                </Typography>
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={4}
-                  label="Bilan de la visite"
-                  value={formData.bilan}
-                  onChange={(e) => setFormData(prev => ({ ...prev, bilan: e.target.value }))}
-                  required
-                  helperText="Décrivez l'impact de votre visite, les observations sur la concurrence, etc."
-                />
-              </Grid>
-
-              {/* Médicaments offerts */}
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">
-                    Échantillons offerts
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    startIcon={<AddIcon />}
-                    onClick={() => setDialogOpen(true)}
-                  >
-                    Ajouter un médicament
-                  </Button>
-                </Box>
-
-                {medicamentsOfferts.length > 0 ? (
-                  <Card variant="outlined">
-                    <CardContent>
-                      <List>
-                        {medicamentsOfferts.map((medicament, index) => (
-                          <ListItem
-                            key={medicament.id}
-                            divider={index < medicamentsOfferts.length - 1}
-                            secondaryAction={
-                              <Button
-                                color="error"
-                                onClick={() => supprimerMedicamentOffert(medicament.id)}
-                              >
-                                Supprimer
-                              </Button>
-                            }
-                          >
-                            <ListItemText
-                              primary={medicament.nom}
-                              secondary={
-                                <Chip
-                                  size="small"
-                                  label={`${medicament.quantite} échantillon${medicament.quantite > 1 ? 's' : ''}`}
-                                  color="primary"
-                                  variant="outlined"
-                                />
-                              }
-                            />
-                          </ListItem>
-                        ))}
-                      </List>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Alert severity="info" icon={<MedicationIcon />}>
-                    Aucun échantillon ajouté pour cette visite
-                  </Alert>
                 )}
-              </Grid>
-
-              {/* Boutons d'action */}
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    size="large"
-                    startIcon={<SaveIcon />}
-                    disabled={loading}
-                  >
-                    {loading ? 'Enregistrement...' : 'Enregistrer le compte-rendu'}
-                  </Button>
-                </Box>
-              </Grid>
+              />
             </Grid>
-          </form>
-        </Paper>
-      </motion.div>
+            
+            {/* Champ pour médecin remplaçant */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Médecin remplaçant (si applicable)"
+                variant="outlined"
+                fullWidth
+                value={formData.medecinVisite}
+                onChange={(e) => setFormData({ ...formData, medecinVisite: e.target.value })}
+                helperText="Indiquez le nom du remplaçant si le médecin habituel n'a pas été rencontré"
+              />
+            </Grid>
+            
+            {/* Date de visite */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Date de visite"
+                type="date"
+                fullWidth
+                required
+                value={formData.date.toISOString().split('T')[0]}
+                onChange={(e) => setFormData({ ...formData, date: new Date(e.target.value) })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            
+            {/* Motif de visite */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required>
+                <InputLabel id="motif-label">Motif de visite</InputLabel>
+                <Select
+                  labelId="motif-label"
+                  value={formData.motif}
+                  label="Motif de visite"
+                  onChange={(e) => setFormData({ ...formData, motif: e.target.value })}
+                >
+                  {MOTIFS_VISITE.map((motif) => (
+                    <MenuItem key={motif} value={motif}>{motif}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            {/* Champ supplémentaire si "Autre" sélectionné */}
+            {formData.motif === 'Autre' && (
+              <Grid item xs={12}>
+                <TextField
+                  label="Précisez le motif"
+                  variant="outlined"
+                  fullWidth
+                  required
+                  value={formData.motifAutre}
+                  onChange={(e) => setFormData({ ...formData, motifAutre: e.target.value })}
+                />
+              </Grid>
+            )}
+            
+            {/* Bilan de la visite */}
+            <Grid item xs={12}>
+              <TextField
+                label="Bilan de la visite"
+                variant="outlined"
+                fullWidth
+                required
+                multiline
+                rows={4}
+                value={formData.bilan}
+                onChange={(e) => setFormData({ ...formData, bilan: e.target.value })}
+              />
+            </Grid>
 
+            {/* Section des médicaments offerts */}
+            <Grid item xs={12}>
+              <Card variant="outlined" sx={{ mb: 3 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" component="div">
+                      Médicaments offerts
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={() => setDialogOpen(true)}
+                      color="secondary"
+                    >
+                      Ajouter
+                    </Button>
+                  </Box>
+                  
+                  {medicamentsOfferts.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      Aucun médicament offert pour cette visite.
+                    </Typography>
+                  ) : (
+                    <List>
+                      {medicamentsOfferts.map((med) => (
+                        <ListItem key={med.id} divider>
+                          <ListItemText 
+                            primary={med.nom} 
+                            secondary={`Quantité: ${med.quantite}`} 
+                          />
+                          <Button
+                            color="error"
+                            size="small"
+                            onClick={() => supprimerMedicamentOffert(med.id)}
+                          >
+                            Supprimer
+                          </Button>
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+            
+            {/* Bouton de soumission */}
+            <Grid item xs={12}>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                size="large"
+                disabled={loading}
+                startIcon={<SaveIcon />}
+              >
+                {loading ? 'Enregistrement...' : 'Enregistrer le compte-rendu'}
+              </Button>
+            </Grid>
+          </Grid>
+        </form>
+      </Paper>
+      
       {/* Dialog pour ajouter un médicament */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Ajouter un échantillon</DialogTitle>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
+        <DialogTitle>Ajouter un médicament offert</DialogTitle>
         <DialogContent>
-          <Box sx={{ pt: 2 }}>
+          <Box sx={{ pt: 1, width: 400, maxWidth: '100%' }}>
             <Autocomplete
               options={medicaments}
-              getOptionLabel={(option) => option.nomCommercial}
+              getOptionLabel={(option) => `${option.nomCommercial}${option.famille ? ` (${option.famille.libelle})` : ''}`}
               value={selectedMedicamentPourOffre}
-              onChange={(_, newValue) => setSelectedMedicamentPourOffre(newValue)}
+              onChange={(_, newValue) => {
+                setSelectedMedicamentPourOffre(newValue);
+              }}
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Médicament"
-                  placeholder="Rechercher un médicament..."
+                  label="Sélectionner un médicament"
+                  variant="outlined"
                   fullWidth
-                  margin="normal"
+                  required
+                  sx={{ mb: 2 }}
                 />
-              )}
-              renderOption={(props, option) => (
-                <Box component="li" {...props}>
-                  <Box>
-                    <Typography variant="body1">{option.nomCommercial}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {option.famille?.libelle}
-                    </Typography>
-                  </Box>
-                </Box>
               )}
             />
             
             <TextField
-              fullWidth
+              label="Quantité"
               type="number"
-              label="Quantité d'échantillons"
+              fullWidth
               value={quantiteOfferte}
-              onChange={(e) => setQuantiteOfferte(Math.max(1, parseInt(e.target.value) || 1))}
-              margin="normal"
-              inputProps={{ min: 1 }}
+              onChange={(e) => setQuantiteOfferte(parseInt(e.target.value) || 1)}
+              InputProps={{ inputProps: { min: 1 } }}
+              sx={{ mb: 2 }}
             />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Annuler</Button>
-          <Button
-            onClick={ajouterMedicamentOffert}
-            variant="contained"
+          <Button 
+            onClick={() => {
+              ajouterMedicamentOffert();
+              setDialogOpen(false);
+              setSelectedMedicamentPourOffre(null);
+              setQuantiteOfferte(1);
+            }}
+            color="primary"
+            startIcon={<MedicationIcon />}
             disabled={!selectedMedicamentPourOffre}
           >
             Ajouter
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Layout>
   );
 };
 

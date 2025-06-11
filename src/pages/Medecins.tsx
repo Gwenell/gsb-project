@@ -446,6 +446,8 @@ const Medecins: React.FC = () => {
               startIcon={<FilterIcon sx={{ color: openFilter ? 'inherit' : '#2E2E2E' }} />}
               onClick={() => setOpenFilter(!openFilter)}
               size="small"
+              color="secondary"
+              
             >
               Filtres
             </Button>
@@ -458,7 +460,7 @@ const Medecins: React.FC = () => {
                 </Typography>
                 <Button
                   variant={sortBy.field === 'nom' ? "contained" : "outlined"}
-                  color="primary"
+                  color="secondary"
                   onClick={() => handleSortChange('nom')}
                   endIcon={sortBy.field === 'nom' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
                   size="small"
@@ -468,7 +470,7 @@ const Medecins: React.FC = () => {
                 </Button>
                 <Button
                   variant={sortBy.field === 'departement' ? "contained" : "outlined"}
-                  color="primary"
+                  color="secondary"
                   onClick={() => handleSortChange('departement')}
                   endIcon={sortBy.field === 'departement' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
                   size="small"
@@ -478,7 +480,7 @@ const Medecins: React.FC = () => {
                 </Button>
                 <Button
                   variant={sortBy.field === 'specialitecomplementaire' ? "contained" : "outlined"}
-                  color="primary"
+                  color="secondary"
                   onClick={() => handleSortChange('specialitecomplementaire')}
                   endIcon={sortBy.field === 'specialitecomplementaire' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
                   size="small"
@@ -490,7 +492,7 @@ const Medecins: React.FC = () => {
             {isAdmin && user && (
               <Button
                 variant="contained"
-                color="primary"
+                color="secondary"
                 startIcon={<AddIcon />}
                 onClick={handleAddMedecin}
                     sx={{ ml: { xs: 0, sm: 1 } }}
@@ -551,7 +553,7 @@ const Medecins: React.FC = () => {
                   </FormControl>
 
                   <Button 
-                    color="primary" 
+                    color="secondary" 
                     onClick={clearFilters} 
                     sx={{ alignSelf: { sm: 'center' } }}
                   >

@@ -18,6 +18,9 @@ import AssignMedicaments from './pages/AssignMedicaments';
 import CompteRenduVisite from './pages/CompteRenduVisite';
 import ValidationRapports from './pages/ValidationRapports';
 import Users from './pages/Users';
+import FicheFraisList from './pages/FichesFrais/FicheFraisList';
+import FicheFraisForm from './pages/FichesFrais/FicheFraisForm';
+import FicheFraisDetails from './pages/FichesFrais/FicheFraisDetails';
 
 const ProtectedRoute = ({ element }: { element: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -36,7 +39,7 @@ const ProtectedRoute = ({ element }: { element: React.ReactNode }) => {
 // Route qui nécessite des privilèges d'administrateur
 const AdminRoute = ({ element }: { element: React.ReactNode }) => {
   const { user, loading } = useAuth();
-  const isAdmin = user?.type_utilisateur === 'admin' || user?.type_utilisateur === 'administrateur' || user?.type_utilisateur === 'responsable';
+  const isAdmin = user?.type_utilisateur === 'admin' || user?.type_utilisateur === 'administrateur';
   
   if (loading) {
     return (
@@ -51,6 +54,47 @@ const AdminRoute = ({ element }: { element: React.ReactNode }) => {
   }
   
   return isAdmin ? <>{element}</> : <Navigate to="/dashboard" replace />;
+};
+
+// Route qui nécessite des privilèges de comptable
+const ComptableRoute = ({ element }: { element: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  const isComptable = user?.type_utilisateur === 'comptable' || user?.type_utilisateur === 'responsable';
+  
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return isComptable ? <>{element}</> : <Navigate to="/dashboard" replace />;
+};
+
+// Route qui nécessite des privilèges de non-admin (bloque les administrateurs)
+const NonAdminRoute = ({ element }: { element: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  const isAdmin = user?.type_utilisateur === 'admin' || user?.type_utilisateur === 'administrateur';
+  
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // Si c'est un admin, rediriger vers dashboard
+  return !isAdmin ? <>{element}</> : <Navigate to="/dashboard" replace />;
 };
 
 function App() {
@@ -72,9 +116,16 @@ function App() {
             <Route path="/assign-medicaments" element={<ProtectedRoute element={<AssignMedicaments />} />} />
             <Route path="/rapports" element={<ProtectedRoute element={<Rapports />} />} />
             <Route path="/rapports/nouveau" element={<ProtectedRoute element={<CompteRenduVisite />} />} />
-            <Route path="/validation-rapports" element={<ProtectedRoute element={<ValidationRapports />} />} />
+            <Route path="/validation-rapports" element={<ComptableRoute element={<ValidationRapports />} />} />
             <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
             <Route path="/users" element={<AdminRoute element={<Users />} />} />
+
+            {/* Fiches de frais - non accessibles aux administrateurs */}
+            <Route path="/fiches-frais" element={<NonAdminRoute element={<FicheFraisList />} />} />
+            <Route path="/fiches-frais/new" element={<NonAdminRoute element={<FicheFraisForm />} />} />
+            <Route path="/fiches-frais/:id" element={<NonAdminRoute element={<FicheFraisDetails />} />} />
+            <Route path="/fiches-frais/edit/:id" element={<NonAdminRoute element={<FicheFraisForm />} />} />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>

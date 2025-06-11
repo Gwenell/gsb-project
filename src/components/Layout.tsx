@@ -30,9 +30,11 @@ import MedicationIcon from '@mui/icons-material/Medication';
 import PeopleIcon from '@mui/icons-material/People';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import PersonIcon from '@mui/icons-material/Person';
+import DescriptionIcon from '@mui/icons-material/Description';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import styled from '@emotion/styled';
+import PageTitle from './PageTitle';
 
 // Crimson red for accents
 const crimsonRed = '#DC143C';
@@ -81,36 +83,40 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   // Menu items selon les modules définis dans la documentation
   const getMenuItems = () => {
     const baseItems = [
-      {
-        text: 'Tableau de bord',
-        icon: <DashboardIcon />,
-        path: '/dashboard',
-      },
-      {
-        text: 'Médecins',
-        icon: <LocalHospitalIcon />,
-        path: '/medecins',
-      },
-      {
-        text: 'Médicaments',
-        icon: <MedicationIcon />,
-        path: '/medicaments',
-      }
-    ];
+    {
+      text: 'Tableau de bord',
+      icon: <DashboardIcon />,
+      path: '/dashboard',
+    },
+    {
+      text: 'Médecins',
+      icon: <LocalHospitalIcon />,
+      path: '/medecins',
+    },
+    {
+      text: 'Médicaments',
+      icon: <MedicationIcon />,
+      path: '/medicaments',
+    }
+  ];
 
     // Si utilisateur non connecté, retourner seulement les pages publiques
     if (!user) {
       return baseItems;
     }
+    
+    // Fiches de frais - non visible pour les administrateurs
+    if (!isAdmin) {
+      baseItems.push({
+        text: 'Fiches de Frais',
+        icon: <DescriptionIcon />,
+        path: '/fiches-frais',
+      });
+    }
 
     // Module Visiteur - saisie des comptes-rendus
     if (user?.type_utilisateur === 'visiteur') {
       baseItems.push(
-        {
-          text: 'Nouveau Compte-Rendu',
-          icon: <AssignmentIcon />,
-          path: '/compte-rendu',
-        },
         {
           text: 'Mes Rapports',
           icon: <AssignmentIcon />,
@@ -122,11 +128,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
     // Module Délégué/Responsable - vision activité + saisie CR
     if (user?.type_utilisateur === 'delegue' || user?.type_utilisateur === 'responsable') {
       baseItems.push(
-        {
-          text: 'Nouveau Compte-Rendu',
-          icon: <AssignmentIcon />,
-          path: '/compte-rendu',
-        },
         {
           text: 'Rapports Équipe',
           icon: <AssignmentIcon />,
@@ -140,13 +141,20 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
       );
     }
 
-    // Gestion des utilisateurs pour les administrateurs
-    if (isAdmin || user?.type_utilisateur === 'responsable') {
-      baseItems.push({
-        text: 'Utilisateurs',
-        icon: <PeopleIcon />,
-        path: '/users',
-      });
+    // Pour les administrateurs, ajout de la page Rapports également
+    if (isAdmin) {
+      baseItems.push(
+        {
+          text: 'Rapports',
+          icon: <AssignmentIcon />,
+          path: '/rapports',
+        },
+        {
+          text: 'Utilisateurs',
+          icon: <PeopleIcon />,
+          path: '/users',
+        }
+      );
     }
 
     return baseItems;
@@ -157,6 +165,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <CssBaseline />
+      <PageTitle title={title} />
       <AppBar 
         position="fixed" 
         elevation={3}
@@ -193,47 +202,47 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           
           <Box sx={{ display: { xs: 'none', md: 'flex' }, flexGrow: 1 }}>
             {menuItems.map((item) => (
-              <Button
-                key={item.text}
-                onClick={() => handleNavigate(item.path)}
-                sx={{
-                  mx: 1,
-                  color: theme.palette.primary.contrastText,
-                  fontWeight: location.pathname.startsWith(item.path) ? 'bold' : 'normal',
-                  borderBottom: location.pathname.startsWith(item.path) 
-                    ? `2px solid ${crimsonRed}` 
-                    : '2px solid transparent',
-                  borderRadius: 0,
-                  '&:hover': {
-                    bgcolor: 'transparent',
-                    borderBottom: `2px solid ${crimsonRed}`,
-                  }
-                }}
-                startIcon={item.icon}
-              >
-                {item.text}
-              </Button>
+                <Button
+                  key={item.text}
+                  onClick={() => handleNavigate(item.path)}
+                  sx={{
+                    mx: 1,
+                    color: theme.palette.primary.contrastText,
+                    fontWeight: location.pathname.startsWith(item.path) ? 'bold' : 'normal',
+                    borderBottom: location.pathname.startsWith(item.path) 
+                      ? `2px solid ${crimsonRed}` 
+                      : '2px solid transparent',
+                    borderRadius: 0,
+                    '&:hover': {
+                      bgcolor: 'transparent',
+                      borderBottom: `2px solid ${crimsonRed}`,
+                    }
+                  }}
+                  startIcon={item.icon}
+                >
+                  {item.text}
+                </Button>
             ))}
           </Box>
           
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {user ? (
               <>
-                <Typography variant="body1" sx={{ mr: 2, display: { xs: 'none', md: 'block' } }}>
+            <Typography variant="body1" sx={{ mr: 2, display: { xs: 'none', md: 'block' } }}>
                   {user.prenom} {user.nom}
-                </Typography>
-                <IconButton
-                  size="large"
-                  edge="end"
-                  aria-label="compte de l'utilisateur actuel"
-                  aria-haspopup="true"
-                  onClick={handleProfileMenuOpen}
-                  color="inherit"
-                >
-                  <Avatar sx={{ width: 32, height: 32, bgcolor: theme.palette.secondary.main }}>
-                    {user ? getInitials(user.nom, user.prenom) : '?'}
-                  </Avatar>
-                </IconButton>
+            </Typography>
+            <IconButton
+              size="large"
+              edge="end"
+              aria-label="compte de l'utilisateur actuel"
+              aria-haspopup="true"
+              onClick={handleProfileMenuOpen}
+              color="inherit"
+            >
+              <Avatar sx={{ width: 32, height: 32, bgcolor: theme.palette.secondary.main }}>
+                {user ? getInitials(user.nom, user.prenom) : '?'}
+              </Avatar>
+            </IconButton>
               </>
             ) : (
               <Button 
@@ -314,33 +323,33 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
               <Divider sx={{ bgcolor: 'rgba(0,0,0,0.1)' }} />
               <List>
                 {menuItems.map((item) => (
-                  <ListItem key={item.text} disablePadding>
-                    <ListItemButton
-                      onClick={() => navigate(item.path)}
-                      selected={location.pathname === item.path}
-                      sx={{
+                    <ListItem key={item.text} disablePadding>
+                      <ListItemButton
+                        onClick={() => navigate(item.path)}
+                        selected={location.pathname === item.path}
+                        sx={{
                         color: location.pathname === item.path ? theme.palette.primary.contrastText : '#2E2E2E',
-                        '&.Mui-selected': {
-                          bgcolor: 'rgba(220,20,60,0.15)',
-                          '&:hover': {
-                            bgcolor: 'rgba(220,20,60,0.25)',
+                          '&.Mui-selected': {
+                            bgcolor: 'rgba(220,20,60,0.15)',
+                            '&:hover': {
+                              bgcolor: 'rgba(220,20,60,0.25)',
+                            },
                           },
-                        },
-                        '&:hover': {
-                          bgcolor: 'rgba(220,20,60,0.1)',
-                        },
+                          '&:hover': {
+                            bgcolor: 'rgba(220,20,60,0.1)',
+                          },
                         fontWeight: 'medium'
-                      }}
-                    >
+                        }}
+                      >
                       <ListItemIcon sx={{ 
                         color: location.pathname === item.path ? theme.palette.primary.contrastText : '#2E2E2E', 
                         minWidth: 40 
                       }}>
-                        {item.icon}
-                      </ListItemIcon>
-                      <ListItemText primary={item.text} />
-                    </ListItemButton>
-                  </ListItem>
+                          {item.icon}
+                        </ListItemIcon>
+                        <ListItemText primary={item.text} />
+                      </ListItemButton>
+                    </ListItem>
                 ))}
                 
                 {!user && (

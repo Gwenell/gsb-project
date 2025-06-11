@@ -140,10 +140,10 @@ const Login: React.FC = () => {
               <Button
                 fullWidth
                 variant="outlined"
-                color="primary"
+                color="secondary"
                 size="large"
-                sx={{ mb: 2, py: 1.2 }}
-                onClick={() => navigate('/dashboard')}
+                sx={{ mb: 2, py: 1.2, color: '#2E2E2E' }}
+                onClick={() => navigate('/dashboard')}      
               >
                 Visiter sans connexion
               </Button>

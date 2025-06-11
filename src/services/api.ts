@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base API URL for Laravel backend
-const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8001/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8096/api';
 
 // Create an Axios instance with default config
 const api = axios.create({
@@ -492,6 +492,37 @@ export const getAllFamilles = async () => {
   }
 };
 
+// Récupérer les statistiques publiques du dashboard
+export const getPublicDashboardStats = async (periode: string = 'mois', date: string = '') => {
+  try {
+    const params: { periode: string; date?: string } = { periode };
+    if (date) params.date = date;
+    
+    console.log('Récupération des statistiques publiques avec paramètres:', params);
+    const response = await api.get('/dashboard-stats', { params });
+    console.log('Réponse statistiques publiques brute:', response);
+    
+    return {
+      status: 'success',
+      data: response.data || {}
+    };
+  } catch (error) {
+    console.error("Error fetching public dashboard statistics:", error);
+    let errorMessage = "Erreur lors de la récupération des statistiques publiques";
+    
+    if (error.response) {
+      console.error("Détails de l'erreur:", error.response.data);
+      errorMessage = error.response.data?.message || errorMessage;
+    }
+    
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : errorMessage,
+      data: {}
+    };
+  }
+};
+
 // Rapports
 export const getRapportsByVisiteur = async (visiteurId: string) => {
   try {
@@ -793,6 +824,53 @@ export const getRapportsEquipe = async (mois: string = '') => {
   }
 };
 
+// Récupérer tous les rapports (admin seulement)
+export const getAllRapports = async () => {
+  try {
+    console.log("Appel de l'API pour tous les rapports (admin)");
+    const response = await api.get('/admin/rapports');
+    
+    console.log("Réponse de l'API pour tous les rapports:", response);
+    
+    if (!response.data) {
+      return {
+        status: 'error',
+        message: 'Aucune donnée reçue du serveur',
+        data: null
+      };
+    }
+    
+    return {
+      status: 'success',
+      data: response.data
+    };
+  } catch (error) {
+    console.error("Error fetching all reports:", error);
+    
+    let errorMessage = "Erreur lors de la récupération de tous les rapports";
+    
+    if (error.response) {
+      console.error("Détails de l'erreur:", error.response.data);
+      errorMessage = error.response.data?.message || errorMessage;
+      
+      // Si c'est une erreur d'autorisation, afficher un message plus clair
+      if (error.response.status === 403) {
+        errorMessage = "Vous n'êtes pas autorisé à accéder à tous les rapports. Seuls les administrateurs peuvent voir tous les rapports.";
+      } else if (error.response.status === 401) {
+        errorMessage = "Session expirée. Veuillez vous reconnecter.";
+      } else if (error.response.status === 500) {
+        errorMessage = "Erreur serveur. Veuillez contacter l'administrateur.";
+      }
+    }
+    
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : errorMessage,
+      data: null
+    };
+  }
+};
+
 export const updateRapport = async (id: string, rapportData: any) => {
   try {
     const response = await api.put(`/rapports/${id}`, rapportData);
@@ -880,7 +958,11 @@ export const getAllUsers = async () => {
 
 export const addUser = async (userData: any) => {
   try {
-    const response = await api.post('/users', userData);
+    const response = await api.post('/users', {
+      ...userData,
+      dateEmbauche: userData.dateEmbauche,
+      username: userData.username,
+    });
     return {
       status: 'success',
       data: response.data
@@ -897,7 +979,11 @@ export const addUser = async (userData: any) => {
 
 export const updateUser = async (id: string, userData: any) => {
   try {
-    const response = await api.put(`/users/${id}`, userData);
+    const response = await api.put(`/users/${id}`, {
+      ...userData,
+      dateEmbauche: userData.dateEmbauche,
+      username: userData.username,
+    });
     return {
       status: 'success',
       data: response.data

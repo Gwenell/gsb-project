@@ -595,6 +595,7 @@ const Medicaments: React.FC = () => {
               startIcon={<FilterIcon sx={{ color: openFilter ? 'inherit' : '#2E2E2E' }} />}
               onClick={() => setOpenFilter(!openFilter)}
               size="small"
+              color="secondary"
             >
               Filtres
             </Button>
@@ -608,7 +609,7 @@ const Medicaments: React.FC = () => {
               </Typography>
               <Button
                 variant={sortBy.field === 'nom_commercial' ? "contained" : "outlined"}
-                color="primary"
+                color="secondary"
                 onClick={() => handleSortChange('nom_commercial')}
                 endIcon={sortBy.field === 'nom_commercial' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
                 size="small"
@@ -618,7 +619,7 @@ const Medicaments: React.FC = () => {
               </Button>
             <Button
                 variant={sortBy.field === 'id_famille' ? "contained" : "outlined"}
-              color="primary"
+              color="secondary"
                 onClick={() => handleSortChange('id_famille')}
                 endIcon={sortBy.field === 'id_famille' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
               size="small"
@@ -628,7 +629,7 @@ const Medicaments: React.FC = () => {
             </Button>
               <Button
                 variant={sortBy.field === 'prix' ? "contained" : "outlined"}
-                color="primary"
+                color="secondary"
                 onClick={() => handleSortChange('prix')}
                 endIcon={sortBy.field === 'prix' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
                 size="small"
@@ -684,7 +685,7 @@ const Medicaments: React.FC = () => {
                   </FormControl>
 
                   <Button 
-                    color="primary" 
+                    color="secondary" 
                     onClick={clearFilters} 
                     sx={{ alignSelf: { sm: 'center' } }}
                   >

@@ -57,7 +57,8 @@ import {
   addMedicamentOffert,
   getAllMedecins,
   getAllMedicaments,
-  deleteRapport
+  deleteRapport,
+  getAllRapports
 } from '../services/api';
 import Layout from '../components/Layout';
 import CustomGrid from '../components/CustomGrid';
@@ -272,10 +273,27 @@ const Rapports: React.FC = () => {
       try {
         setLoading(true);
         if (user && user.id) {
-          console.log("Récupération des rapports pour l'utilisateur:", user.id);
-          const response = await getRapportsByVisiteur(user.id);
+          console.log("Utilisateur connecté:", user.id, "Type:", user.type_utilisateur);
+          
+          let response;
+          // Si c'est un administrateur, récupérer tous les rapports
+          if (user.type_utilisateur === 'admin' || user.type_utilisateur === 'administrateur') {
+            console.log("Récupération de tous les rapports (administrateur)");
+            response = await getAllRapports();
+            
+            if (response.status === 'error') {
+              console.error("Erreur lors de la récupération des rapports admin:", response.message);
+              setError(`Erreur: ${response.message || "Impossible de récupérer les rapports"}`);
+              setRapports([]);
+              setFilteredRapports([]);
+              return;
+            }
+          } else {
+            console.log("Récupération des rapports pour l'utilisateur:", user.id);
+            response = await getRapportsByVisiteur(user.id);
+          }
+          
           console.log("Réponse brute de l'API:", response);
-          console.log("Rapports data:", response.data);
           
           // Check if data exists and is valid
           if (!response.data) {
@@ -285,6 +303,8 @@ const Rapports: React.FC = () => {
             setFilteredRapports([]);
             return;
           }
+          
+          console.log("Rapports data:", response.data);
           
           // Handle different response formats
           let rapportsData = [];
@@ -324,6 +344,11 @@ const Rapports: React.FC = () => {
                 console.warn("Rapport incomplet trouvé:", rapport);
               }
               
+              // If the report already has nomMedecin and prenomMedecin, use them
+              if (rapport.nomMedecin && rapport.prenomMedecin) {
+                return rapport;
+              }
+              
               const medecin = medecins.find(m => m.id === rapport.idMedecin);
               return {
                 ...rapport,
@@ -332,14 +357,15 @@ const Rapports: React.FC = () => {
                 date: rapport.date || new Date().toISOString().split('T')[0],
                 motif: rapport.motif || 'periodicite',
                 bilan: rapport.bilan || '',
-                nomMedecin: medecin ? medecin.nom : 'Inconnu',
-                prenomMedecin: medecin ? medecin.prenom : ''
+                nomMedecin: rapport.nomMedecin || (medecin ? medecin.nom : 'Inconnu'),
+                prenomMedecin: rapport.prenomMedecin || (medecin ? medecin.prenom : '')
               };
             });
             
             console.log("Données enrichies:", enrichedData);
             setRapports(enrichedData);
             setFilteredRapports(enrichedData);
+            setError(''); // Clear any previous errors
           } else {
             console.log("Aucun rapport trouvé");
             setRapports([]);
@@ -350,6 +376,8 @@ const Rapports: React.FC = () => {
       } catch (err) {
         console.error('Erreur lors de la récupération des rapports:', err);
         setError('Erreur lors du chargement des rapports. Veuillez réessayer plus tard.');
+        setRapports([]);
+        setFilteredRapports([]);
       } finally {
         setLoading(false);
       }
@@ -862,7 +890,7 @@ const Rapports: React.FC = () => {
           >
             <Button
               variant="contained"
-              color="primary"
+              color="secondary"
               startIcon={<AddIcon />}
               onClick={() => navigate('/rapports/nouveau')}
               sx={{
@@ -882,6 +910,7 @@ const Rapports: React.FC = () => {
               sx={{
                 fontWeight: 'medium'
               }}
+              color="secondary"
             >
               Filtres
             </Button>
@@ -895,7 +924,7 @@ const Rapports: React.FC = () => {
           </Typography>
           <Button
             variant={sortBy.field === 'date' ? "contained" : "outlined"}
-            color="primary"
+            color="secondary"
             onClick={() => handleSortChange('date')}
             endIcon={sortBy.field === 'date' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
             size="small"
@@ -905,7 +934,7 @@ const Rapports: React.FC = () => {
           </Button>
           <Button
             variant={sortBy.field === 'motif' ? "contained" : "outlined"}
-            color="primary"
+            color="secondary"
             onClick={() => handleSortChange('motif')}
             endIcon={sortBy.field === 'motif' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
             size="small"
@@ -915,7 +944,7 @@ const Rapports: React.FC = () => {
           </Button>
           <Button
             variant={sortBy.field === 'nomMedecin' ? "contained" : "outlined"}
-            color="primary"
+            color="secondary"
             onClick={() => handleSortChange('nomMedecin')}
             endIcon={sortBy.field === 'nomMedecin' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
             size="small"
@@ -979,7 +1008,7 @@ const Rapports: React.FC = () => {
                   </CustomGrid>
                   <CustomGrid item xs={12} sm={6} md={3}>
                     <Button 
-                      color="primary" 
+                      color="secondary" 
                       onClick={clearFilters} 
                       fullWidth
                       sx={{ height: '100%' }}
