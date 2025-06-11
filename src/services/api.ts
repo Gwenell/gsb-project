@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base API URL for Laravel backend
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8096/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://gsbapi.gwenell.com/api';
 
 // Create an Axios instance with default config
 const api = axios.create({
