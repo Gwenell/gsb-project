@@ -18,7 +18,8 @@ import {
   Button,
   CircularProgress,
   useTheme,
-  CssBaseline
+  CssBaseline,
+  Chip
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -27,7 +28,8 @@ import {
   Medication as MedicationIcon,
   LocalHospital as DoctorIcon,
   Person as PersonIcon,
-  ExitToApp as LogoutIcon
+  ExitToApp as LogoutIcon,
+  AdminPanelSettings as AdminIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -79,6 +81,48 @@ const AppNavBar: React.FC<AppNavBarProps> = ({ window }) => {
   const getInitials = (nom?: string, prenom?: string) => {
     if (!nom || !prenom) return '?';
     return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
+  };
+
+  // Get user role label for badge
+  const getUserRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin':
+      case 'administrateur':
+        return 'Admin';
+      case 'visiteur':
+        return 'Visiteur';
+      case 'delegue':
+        return 'Délégué';
+      case 'responsable':
+        return 'Responsable';
+      case 'directeur':
+        return 'Directeur';
+      case 'comptable':
+        return 'Comptable';
+      default:
+        return role;
+    }
+  };
+  
+  // Get user role chip color
+  const getUserRoleColor = (role: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+    switch (role) {
+      case 'admin':
+      case 'administrateur':
+        return 'error';
+      case 'delegue':
+        return 'primary';
+      case 'responsable':
+        return 'secondary';
+      case 'directeur':
+        return 'info';
+      case 'comptable':
+        return 'warning';
+      case 'visiteur':
+        return 'success';
+      default:
+        return 'default';
+    }
   };
 
   // Menu accessible à tous les utilisateurs (connectés ou non)
@@ -172,6 +216,20 @@ const AppNavBar: React.FC<AppNavBarProps> = ({ window }) => {
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {user ? (
               <>
+            <Chip
+              label={getUserRoleLabel(user.type_utilisateur)}
+              color={getUserRoleColor(user.type_utilisateur)}
+              size="small"
+              icon={user.type_utilisateur.includes('admin') ? <AdminIcon /> : <PersonIcon />}
+              sx={{ 
+                mr: 2, 
+                display: { xs: 'none', md: 'flex' },
+                color: 'white',
+                '& .MuiChip-icon': {
+                  color: 'white'
+                }
+              }}
+            />
             <Typography variant="body1" sx={{ mr: 2, display: { xs: 'none', md: 'block' } }}>
                   {user.prenom} {user.nom}
             </Typography>
@@ -232,6 +290,7 @@ const AppNavBar: React.FC<AppNavBarProps> = ({ window }) => {
               sx={{ 
                 p: 2, 
                 display: 'flex', 
+                flexDirection: 'column',
                 alignItems: 'center', 
                 justifyContent: 'center'
               }}
@@ -239,6 +298,26 @@ const AppNavBar: React.FC<AppNavBarProps> = ({ window }) => {
               <Typography variant="h6" component="div" sx={{ color: theme.palette.secondary.contrastText }}>
                 GSB-Rapport
               </Typography>
+              {user && (
+                <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <Chip
+                    label={getUserRoleLabel(user.type_utilisateur)}
+                    color={getUserRoleColor(user.type_utilisateur)}
+                    size="small"
+                    icon={user.type_utilisateur.includes('admin') ? <AdminIcon /> : <PersonIcon />}
+                    sx={{ 
+                      mb: 1,
+                      color: 'white',
+                      '& .MuiChip-icon': {
+                        color: 'white'
+                      }
+                    }}
+                  />
+                  <Typography variant="body2" sx={{ color: theme.palette.secondary.contrastText, textAlign: 'center' }}>
+                    {user.prenom} {user.nom}
+                  </Typography>
+                </Box>
+              )}
             </Box>
             <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)' }} />
             <List>

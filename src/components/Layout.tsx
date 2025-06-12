@@ -21,6 +21,7 @@ import {
   Container,
   useTheme,
   CircularProgress,
+  Chip,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -31,6 +32,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import PersonIcon from '@mui/icons-material/Person';
 import DescriptionIcon from '@mui/icons-material/Description';
+import AdminPanelSettings from '@mui/icons-material/AdminPanelSettings';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import styled from '@emotion/styled';
@@ -78,6 +80,48 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const getInitials = (nom?: string, prenom?: string) => {
     if (!nom || !prenom) return '?';
     return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
+  };
+
+  // Get user role label for badge
+  const getUserRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin':
+      case 'administrateur':
+        return 'Admin';
+      case 'visiteur':
+        return 'Visiteur';
+      case 'delegue':
+        return 'Délégué';
+      case 'responsable':
+        return 'Responsable';
+      case 'directeur':
+        return 'Directeur';
+      case 'comptable':
+        return 'Comptable';
+      default:
+        return role;
+    }
+  };
+  
+  // Get user role chip color
+  const getUserRoleColor = (role: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+    switch (role) {
+      case 'admin':
+      case 'administrateur':
+        return 'error';
+      case 'delegue':
+        return 'primary';
+      case 'responsable':
+        return 'secondary';
+      case 'directeur':
+        return 'info';
+      case 'comptable':
+        return 'warning';
+      case 'visiteur':
+        return 'success';
+      default:
+        return 'default';
+    }
   };
 
   // Menu items selon les modules définis dans la documentation
@@ -228,6 +272,20 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {user ? (
               <>
+            <Chip
+              label={getUserRoleLabel(user.type_utilisateur)}
+              color={getUserRoleColor(user.type_utilisateur)}
+              size="small"
+              icon={user.type_utilisateur.includes('admin') ? <AdminPanelSettings /> : <PersonIcon />}
+              sx={{ 
+                mr: 2, 
+                display: { xs: 'none', md: 'flex' },
+                color: 'white',
+                '& .MuiChip-icon': {
+                  color: 'white'
+                }
+              }}
+            />
             <Typography variant="body1" sx={{ mr: 2, display: { xs: 'none', md: 'block' } }}>
                   {user.prenom} {user.nom}
             </Typography>
@@ -308,17 +366,38 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
             </Box>
           }>
             <Box sx={{ bgcolor: 'white', height: '100%' }}>
-              <Toolbar>
+              <Toolbar sx={{ flexDirection: 'column', alignItems: 'center', py: 2 }}>
                 <Typography 
                   variant="h6" 
                   component="div" 
                   sx={{ 
                     color: theme.palette.primary.main,
-                    fontWeight: 'bold' 
+                    fontWeight: 'bold',
+                    mb: 1
                   }}
                 >
                   GSB Rapports
                 </Typography>
+                {user && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Chip
+                      label={getUserRoleLabel(user.type_utilisateur)}
+                      color={getUserRoleColor(user.type_utilisateur)}
+                      size="small"
+                      icon={user.type_utilisateur.includes('admin') ? <AdminPanelSettings /> : <PersonIcon />}
+                      sx={{ 
+                        mb: 1,
+                        color: 'white',
+                        '& .MuiChip-icon': {
+                          color: 'white'
+                        }
+                      }}
+                    />
+                    <Typography variant="body2" sx={{ color: theme.palette.primary.main, textAlign: 'center' }}>
+                      {user.prenom} {user.nom}
+                    </Typography>
+                  </Box>
+                )}
               </Toolbar>
               <Divider sx={{ bgcolor: 'rgba(0,0,0,0.1)' }} />
               <List>

@@ -58,8 +58,8 @@ interface Medicament {
   composition: string;
   effets: string;
   contre_indications: string;
+  contreIndications?: string;
   famille?: string;
-  prix?: string;
 }
 
 interface Famille {
@@ -118,8 +118,7 @@ const Medicaments: React.FC = () => {
     id_famille: '',
     composition: '',
     effets: '',
-    contre_indications: '',
-    prix: ''
+    contre_indications: ''
   });
 
   const isAdmin = user?.type_utilisateur === 'admin' || user?.type_utilisateur === 'administrateur' || user?.type_utilisateur === 'responsable';
@@ -236,14 +235,8 @@ const Medicaments: React.FC = () => {
         let valueA = a[sortBy.field as keyof Medicament];
         let valueB = b[sortBy.field as keyof Medicament];
         
-        // Cas spécial pour le prix (conversion numérique)
-        if (sortBy.field === 'prix') {
-          const numA = valueA ? parseFloat(valueA as string) : 0;
-          const numB = valueB ? parseFloat(valueB as string) : 0;
-          return sortBy.order === 'asc' ? numA - numB : numB - numA;
-        }
         // Pour les champs textuels
-        else if (typeof valueA === 'string' && typeof valueB === 'string') {
+        if (typeof valueA === 'string' && typeof valueB === 'string') {
           valueA = valueA.toLowerCase();
           valueB = valueB.toLowerCase();
         }
@@ -279,13 +272,13 @@ const Medicaments: React.FC = () => {
   );
 
   const handleAddMedicament = () => {
+    setCurrentMedicament(null);
     setFormValues({
       nom_commercial: '',
       id_famille: '',
       composition: '',
       effets: '',
-      contre_indications: '',
-      prix: ''
+      contre_indications: ''
     });
     setOpenAddDialog(true);
   };
@@ -293,20 +286,45 @@ const Medicaments: React.FC = () => {
   const handleEditMedicament = async (medicament: Medicament) => {
     try {
       setLoading(true);
+      console.log("Ouverture de l'édition pour le médicament:", medicament);
+      
       // Fetch the medicament details to get the latest data
       const response = await getMedicamentById(medicament.id);
-      if (response.data && response.data.data) {
-        const med = response.data.data;
-        setCurrentMedicament(med);
+      console.log("Réponse API pour les détails du médicament:", response);
+      
+      let medicamentData = null;
+      
+      // Handle different response formats
+      if (response.data) {
+        if (response.data.data) {
+          medicamentData = response.data.data;
+        } else if (Array.isArray(response.data) && response.data.length > 0) {
+          medicamentData = response.data[0];
+        } else if (typeof response.data === 'object' && !Array.isArray(response.data)) {
+          medicamentData = response.data;
+        }
+      }
+      
+      if (medicamentData) {
+        console.log("Données du médicament pour édition:", medicamentData);
+        setCurrentMedicament(medicamentData);
+        
+        // Set form values with proper field mapping
         setFormValues({
-          nom_commercial: med.nom_commercial,
-          id_famille: med.id_famille,
-          composition: med.composition,
-          effets: med.effets,
-          contre_indications: med.contre_indications,
-          prix: med.prix
+          nom_commercial: medicamentData.nom_commercial || medicamentData.nomCommercial || '',
+          id_famille: medicamentData.id_famille || medicamentData.idFamille || '',
+          composition: medicamentData.composition || '',
+          effets: medicamentData.effets || '',
+          contre_indications: medicamentData.contre_indications || medicamentData.contreIndications || ''
         });
         setOpenEditDialog(true);
+      } else {
+        console.error("Format de réponse inattendu ou données manquantes:", response.data);
+        setSnackbar({ 
+          open: true, 
+          message: 'Erreur lors de la récupération des détails du médicament', 
+          severity: 'error' 
+        });
       }
     } catch (error) {
       console.error("Erreur lors de la récupération des détails du médicament:", error);
@@ -428,39 +446,53 @@ const Medicaments: React.FC = () => {
         // Update existing medicament
         console.log("Mise à jour du médicament avec les valeurs:", {
           id: currentMedicament.id,
+          nomCommercial: formValues.nom_commercial,
+          idFamille: formValues.id_famille,
           composition: formValues.composition,
           effets: formValues.effets,
-          contre_indications: formValues.contre_indications
+          contreIndications: formValues.contre_indications
         });
         
-        const response = await updateMedicament(
-          currentMedicament.id,
-          {
-            composition: formValues.composition || '',
-            effets: formValues.effets || '',
-            contreIndications: formValues.contre_indications || ''
-          }
-        );
+        const updateData = {
+          nomCommercial: formValues.nom_commercial || '',
+          idFamille: formValues.id_famille || '',
+          composition: formValues.composition || '',
+          effets: formValues.effets || '',
+          contreIndications: formValues.contre_indications || ''
+        };
         
-        console.log("Réponse API pour la mise à jour:", response.data);
+        const response = await updateMedicament(currentMedicament.id, updateData);
         
-        if (response.data && (response.data.status === "success" || Array.isArray(response.data))) {
+        console.log("Réponse API pour la mise à jour:", response);
+        
+        if (response.status === "success") {
           setSnackbar({ open: true, message: 'Médicament mis à jour avec succès', severity: 'success' });
           // Refresh the list
-          refreshMedicamentsList();
+          await refreshMedicamentsList();
+          // Close the edit dialog
+          setOpenEditDialog(false);
+          setCurrentMedicament(null);
         } else {
-          console.error("Erreur lors de la mise à jour du médicament:", response.data);
+          console.error("Erreur lors de la mise à jour du médicament:", response);
           setSnackbar({ 
             open: true, 
-            message: `Erreur lors de la mise à jour du médicament: ${response.data?.message || 'Erreur inconnue'}`, 
+            message: response.message || 'Erreur lors de la mise à jour du médicament', 
             severity: 'error' 
           });
         }
       }
       
-      // Close dialogs
+      // Close dialogs and reset form
       setOpenAddDialog(false);
       setOpenEditDialog(false);
+      setCurrentMedicament(null);
+      setFormValues({
+        nom_commercial: '',
+        id_famille: '',
+        composition: '',
+        effets: '',
+        contre_indications: ''
+      });
     } catch (error) {
       console.error("Erreur lors de l'enregistrement:", error);
       setSnackbar({ open: true, message: 'Erreur lors de l\'enregistrement du médicament', severity: 'error' });
@@ -627,16 +659,7 @@ const Medicaments: React.FC = () => {
             >
                 Famille
             </Button>
-              <Button
-                variant={sortBy.field === 'prix' ? "contained" : "outlined"}
-                color="secondary"
-                onClick={() => handleSortChange('prix')}
-                endIcon={sortBy.field === 'prix' && (sortBy.order === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />)}
-                size="small"
-                sx={{ minWidth: 'auto', display: { xs: 'none', md: 'inline-flex' } }}
-              >
-                Prix
-              </Button>
+
             </Box>
 
             {isAdmin && user && (
@@ -746,14 +769,7 @@ const Medicaments: React.FC = () => {
                               sx={{ bgcolor: theme.palette.primary.light, color: '#2E2E2E', fontWeight: 'medium' }} 
                             />
                           </Box>
-                          
-                          {medicament.prix && (
-                            <Box sx={{ mt: 1, mb: 0.5 }}>
-                              <Typography variant="body2" color="#2E2E2E" fontWeight="medium">
-                              Prix: {medicament.prix} €
-                            </Typography>
-                            </Box>
-                          )}
+
                         </CardContent>
                         <Divider />
                         <CardActions sx={{ pt: 1, justifyContent: 'space-between', p: 2 }}>
@@ -832,7 +848,16 @@ const Medicaments: React.FC = () => {
             Ajouter un médicament
             <IconButton
               aria-label="close"
-              onClick={() => setOpenAddDialog(false)}
+              onClick={() => {
+                setOpenAddDialog(false);
+                setFormValues({
+                  nom_commercial: '',
+                  id_famille: '',
+                  composition: '',
+                  effets: '',
+                  contre_indications: ''
+                });
+              }}
               size="small"
             >
               <CloseIcon />
@@ -908,22 +933,22 @@ const Medicaments: React.FC = () => {
                   required
                 />
               </CustomGrid>
-              <CustomGrid item xs={12} sm={6}>
-                <TextField
-                  label="Prix indicatif (€)"
-                  name="prix"
-                  type="number"
-                  fullWidth
-                  value={formValues.prix}
-                  onChange={handleInputChange}
-                />
-              </CustomGrid>
+
             </CustomGrid>
             </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
             <Button 
-              onClick={() => setOpenAddDialog(false)} 
+              onClick={() => {
+                setOpenAddDialog(false);
+                setFormValues({
+                  nom_commercial: '',
+                  id_famille: '',
+                  composition: '',
+                  effets: '',
+                  contre_indications: ''
+                });
+              }} 
               startIcon={<ArrowBackIcon />}
               color="inherit"
             >
@@ -951,7 +976,17 @@ const Medicaments: React.FC = () => {
             Modifier un médicament
             <IconButton
               aria-label="close"
-              onClick={() => setOpenEditDialog(false)}
+              onClick={() => {
+                setOpenEditDialog(false);
+                setCurrentMedicament(null);
+                setFormValues({
+                  nom_commercial: '',
+                  id_famille: '',
+                  composition: '',
+                  effets: '',
+                  contre_indications: ''
+                });
+              }}
               size="small"
             >
               <CloseIcon />
@@ -1027,28 +1062,33 @@ const Medicaments: React.FC = () => {
                     required
                   />
                 </CustomGrid>
-                <CustomGrid item xs={12} sm={6}>
-                  <TextField
-                    label="Prix indicatif (€)"
-                    name="prix"
-                    type="number"
-                    fullWidth
-                    value={formValues.prix}
-                    onChange={handleInputChange}
-                  />
-                </CustomGrid>
               </CustomGrid>
             </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
             <Button 
-              onClick={() => setOpenEditDialog(false)} 
+              onClick={() => {
+                setOpenEditDialog(false);
+                setCurrentMedicament(null);
+                setFormValues({
+                  nom_commercial: '',
+                  id_famille: '',
+                  composition: '',
+                  effets: '',
+                  contre_indications: ''
+                });
+              }} 
               startIcon={<ArrowBackIcon />}
               color="inherit"
             >
               Retour
             </Button>
-            <Button onClick={handleSaveMedicament} variant="contained" color="primary">
+            <Button 
+              onClick={handleSaveMedicament} 
+              variant="contained" 
+              color="primary"
+              disabled={!formValues.nom_commercial || !formValues.composition}
+            >
               Mettre à jour
             </Button>
           </DialogActions>
@@ -1122,18 +1162,6 @@ const Medicaments: React.FC = () => {
                         {currentMedicament.contre_indications}
                       </Typography>
                     </CustomGrid>
-                    
-                    {currentMedicament.prix && (
-                      <CustomGrid item xs={12}>
-                        <Divider sx={{ my: 2 }} />
-                        <Typography variant="subtitle1" color="textSecondary">
-                          Prix indicatif
-                        </Typography>
-                        <Typography variant="body1" gutterBottom>
-                          {currentMedicament.prix} €
-                        </Typography>
-                      </CustomGrid>
-                    )}
                   </CustomGrid>
                 </Box>
               </DialogContent>
