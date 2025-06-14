@@ -341,37 +341,38 @@ const Medicaments: React.FC = () => {
       
       // Fetch the medicament details to get the latest data
       const response = await getMedicamentById(medicament.id);
-      console.log("Réponse API pour les détails du médicament:", response.data);
+      console.log("Réponse API pour les détails du médicament:", response);
       
       let medicamentData = null;
       
       // Handle different response formats
-      if (response.data) {
-        if (response.data.data) {
-          // Standard format with nested data property
-          medicamentData = response.data.data;
-        } else if (Array.isArray(response.data) && response.data.length > 0) {
-          // Direct array response
-          medicamentData = response.data[0];
-        } else if (typeof response.data === 'object' && !Array.isArray(response.data)) {
-          // Direct object response
-          medicamentData = response.data;
-        }
+      if (response.status === 'success' && response.data) {
+        medicamentData = response.data;
+      } else {
+        // Fallback to using the passed medicament data
+        medicamentData = medicament;
       }
       
       if (medicamentData) {
-        // Make sure we have the famille information
-        setCurrentMedicament({
+        // Normalize the data and make sure we have the famille information
+        const normalizedMedicament = {
           ...medicamentData,
-          famille: getFamilleById(medicamentData.id_famille)
-        });
+          id: medicamentData.id || '',
+          nom_commercial: medicamentData.nom_commercial || medicamentData.nomCommercial || '',
+          id_famille: medicamentData.id_famille || medicamentData.idFamille || '',
+          composition: medicamentData.composition || '',
+          effets: medicamentData.effets || '',
+          contre_indications: medicamentData.contre_indications || medicamentData.contreIndications || '',
+          famille: getFamilleById(medicamentData.id_famille || medicamentData.idFamille)
+        };
         
+        setCurrentMedicament(normalizedMedicament);
         setOpenViewDialog(true);
       } else {
-        console.error("Format de réponse inattendu ou données manquantes:", response.data);
+        console.error("Aucune donnée disponible pour le médicament:", medicament.id);
         setSnackbar({ 
           open: true, 
-          message: 'Erreur lors de la récupération des détails du médicament: format inattendu', 
+          message: 'Erreur: aucune donnée disponible pour ce médicament', 
           severity: 'error' 
         });
       }
@@ -428,17 +429,17 @@ const Medicaments: React.FC = () => {
           contreIndications: formValues.contre_indications || ''
         });
         
-        console.log("Réponse API pour l'ajout:", response.data);
+        console.log("Réponse API pour l'ajout:", response);
         
-        if (response.data && (response.data.status === "success" || Array.isArray(response.data))) {
+        if (response.status === "success") {
           setSnackbar({ open: true, message: 'Médicament ajouté avec succès', severity: 'success' });
           // Refresh the list
-          refreshMedicamentsList();
+          await refreshMedicamentsList();
         } else {
-          console.error("Erreur lors de l'ajout du médicament:", response.data);
+          console.error("Erreur lors de l'ajout du médicament:", response);
           setSnackbar({ 
             open: true, 
-            message: `Erreur lors de l'ajout du médicament: ${response.data?.message || 'Erreur inconnue'}`, 
+            message: response.message || 'Erreur lors de l\'ajout du médicament', 
             severity: 'error' 
           });
         }
@@ -503,32 +504,38 @@ const Medicaments: React.FC = () => {
   const refreshMedicamentsList = async () => {
     try {
       const updatedResponse = await getAllMedicaments('');
-      console.log("Médicaments actualisés:", updatedResponse.data);
+      console.log("Médicaments actualisés:", updatedResponse);
       
-      if (updatedResponse.data) {
+      if (updatedResponse.status === 'success' && updatedResponse.data) {
         let medicamentsData = [];
         
         // Handle different response formats
         if (Array.isArray(updatedResponse.data)) {
           medicamentsData = updatedResponse.data;
-        } else if (updatedResponse.data.data && Array.isArray(updatedResponse.data.data)) {
-          medicamentsData = updatedResponse.data.data;
         } else {
           console.warn("Format de réponse inattendu pour les médicaments:", updatedResponse.data);
           return;
         }
         
         // Add famille information
-        const updatedMeds = medicamentsData.map((med: Medicament) => {
-          const famille = familles.find(f => f.id === med.id_famille);
+        const updatedMeds = medicamentsData.map((med: any) => {
+          const famille = familles.find(f => f.id === (med.id_famille || med.idFamille));
           return {
             ...med,
+            id: med.id || '',
+            nom_commercial: med.nom_commercial || med.nomCommercial || '',
+            id_famille: med.id_famille || med.idFamille || '',
+            composition: med.composition || '',
+            effets: med.effets || '',
+            contre_indications: med.contre_indications || med.contreIndications || '',
             famille: famille ? famille.libelle : 'Non catégorisé'
           };
         });
         
         setMedicaments(updatedMeds);
         setFilteredMedicaments(updatedMeds);
+      } else {
+        console.error("Erreur dans la réponse:", updatedResponse);
       }
     } catch (error) {
       console.error("Erreur lors de l'actualisation de la liste des médicaments:", error);
@@ -585,6 +592,13 @@ const Medicaments: React.FC = () => {
   const getFamilleById = (id: string) => {
     const famille = familles.find(f => f.id === id);
     return famille ? famille.libelle : 'Non catégorisé';
+  };
+
+  // Fonction pour tronquer le nom de la famille (garder seulement le premier mot)
+  const getTruncatedFamille = (nomFamille: string) => {
+    if (!nomFamille) return 'Non catégorisé';
+    // Prendre seulement le premier mot
+    return nomFamille.split(' ')[0];
   };
 
   // Ajouter cette fonction pour gérer les changements de tri
@@ -764,7 +778,7 @@ const Medicaments: React.FC = () => {
                               {medicament.nom_commercial || medicament.nomCommercial || 'Sans nom'}
                             </Typography>
                             <Chip 
-                              label={medicament.famille || 'Non catégorisé'} 
+                              label={getTruncatedFamille(medicament.famille || 'Non catégorisé')} 
                               size="small" 
                               sx={{ bgcolor: theme.palette.primary.light, color: '#2E2E2E', fontWeight: 'medium' }} 
                             />
@@ -1121,7 +1135,7 @@ const Medicaments: React.FC = () => {
                         Nom commercial
                       </Typography>
                       <Typography variant="body1" gutterBottom>
-                        {currentMedicament.nom_commercial}
+                        {currentMedicament.nom_commercial || currentMedicament.nomCommercial || 'Non défini'}
                       </Typography>
                     </CustomGrid>
                     <CustomGrid item xs={12} sm={6}>
@@ -1129,7 +1143,7 @@ const Medicaments: React.FC = () => {
                         Famille
                       </Typography>
                       <Typography variant="body1" gutterBottom>
-                        {getFamilleById(currentMedicament.id_famille)}
+                        {getFamilleById(currentMedicament.id_famille || currentMedicament.idFamille)}
                       </Typography>
                     </CustomGrid>
                     
@@ -1138,8 +1152,8 @@ const Medicaments: React.FC = () => {
                       <Typography variant="subtitle1" color="textSecondary">
                         Composition
                       </Typography>
-                      <Typography variant="body1" gutterBottom>
-                        {currentMedicament.composition}
+                      <Typography variant="body1" gutterBottom sx={{ whiteSpace: 'pre-wrap' }}>
+                        {currentMedicament.composition || 'Non définie'}
                       </Typography>
                     </CustomGrid>
                     
@@ -1148,8 +1162,8 @@ const Medicaments: React.FC = () => {
                       <Typography variant="subtitle1" color="textSecondary">
                         Effets
                       </Typography>
-                      <Typography variant="body1" gutterBottom>
-                        {currentMedicament.effets}
+                      <Typography variant="body1" gutterBottom sx={{ whiteSpace: 'pre-wrap' }}>
+                        {currentMedicament.effets || 'Non définis'}
                       </Typography>
                     </CustomGrid>
                     
@@ -1158,8 +1172,8 @@ const Medicaments: React.FC = () => {
                       <Typography variant="subtitle1" color="textSecondary">
                         Contre-indications
                       </Typography>
-                      <Typography variant="body1" gutterBottom>
-                        {currentMedicament.contre_indications}
+                      <Typography variant="body1" gutterBottom sx={{ whiteSpace: 'pre-wrap' }}>
+                        {currentMedicament.contre_indications || currentMedicament.contreIndications || 'Non définies'}
                       </Typography>
                     </CustomGrid>
                   </CustomGrid>
